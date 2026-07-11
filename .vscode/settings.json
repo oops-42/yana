@@ -1,0 +1,8 @@
+{
+    "bashIde.includeAllWorkspaceSymbols": true,
+    "bashIde.enableSourceErrorDiagnostics": true,
+    "bashIde.shfmt.languageDialect": "bash",
+    "bashIde.shfmt.simplifyCode": true,
+    "powershell.codeFormatting.pipelineIndentationStyle": "IncreaseIndentationAfterEveryPipeline",
+    "powershell.codeFormatting.trimWhitespaceAroundPipe": true
+}
