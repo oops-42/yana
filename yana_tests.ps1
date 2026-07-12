@@ -258,7 +258,7 @@ function Invoke-YanaTest([string]$TestName = '*') {
 		} else {
 			$Local:YANA_testResult.Failed++
 		}
-		Out-Colored -StdErr -Color yellow -Message "`t`tSub-tests: [√]Passed: $($Local:YANA_subtests_ref.Value.Passed)`t[x]Failed: $($Local:YANA_subtests_ref.Value.Failed)" -MessageDetail $YANA_test
+		Out-Colored -StdErr -Color yellow -Message "`t`tSub-tests Passed: $($Local:YANA_subtests_ref.Value.Passed)`tFailed: $($Local:YANA_subtests_ref.Value.Failed)" -MessageDetail $YANA_test
 		$Local:YANA_subtests_ref = $null
 		$Local:YANA_subtests.Remove($YANA_test)
 	}
@@ -275,6 +275,7 @@ function YANAtest:Invoke-YanaTest@failure {
 	}
 	$test_result = & {
 		$Quiet = $true
+		$LogFile = $null
 		Invoke-YanaTest -TestName 'Invoke-YanaTest@failure_subtest'
 	}
 	if ($test_result.Passed -eq 0) { pass 'Test does not pass' } else { fail "Expected 0 passed subtests, got: $($test_result.Passed)" }
@@ -287,6 +288,7 @@ function YANAtest:Invoke-YanaTest@exception_in_test {
 	}
 	$test_result = & {
 		$Quiet = $true
+		$LogFile = $null
 		Invoke-YanaTest -TestName 'Invoke-YanaTest@exception_in_test_subtest'
 	}
 	if ($test_result.Passed -eq 0) { pass 'Test does not pass' } else { fail "Expected 0 passed subtests, got: $($test_result.Passed)" }
