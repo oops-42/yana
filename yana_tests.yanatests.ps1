@@ -83,6 +83,7 @@ function YANAtest:Invoke-YanaTestFile@with_valid_content {
 				)
 			}
 			$Quiet = $true
+			$LogFile = $null
 			Invoke-YanaTestFile -TestFile $tempFile -TestName '*'
 		}
 		if ($result.Passed -eq 1) { pass 'Test file executed with passed tests' } else { fail 'No tests passed' }
@@ -96,6 +97,7 @@ function YANAtest:Invoke-YanaTestFile@with_valid_content {
 function YANAtest:Invoke-YanaTestFile@nonexistent_file {
 	$result = & {
 		$Quiet = $true
+		$LogFile = $null
 		Invoke-YanaTestFile -TestFile '/nonexistent/path/test.ps1'
 	}
 	if ($result.Passed -eq 0 -and $result.Failed -eq 0) { pass 'Returns empty result for nonexistent file' } else { fail 'Expected zero results for missing file' }
