@@ -20,9 +20,9 @@ param(
 	# Test file paths to invoke.
 	# Accepts wildcards to match multiple files.
 	# Defaults to all test files in the current directory and subdirectories.
-	[string[]]$TestFile = @('*'),
+	[string]$TestFile = '*',
 	# Test function name(s) to invoke (using pattern 'YANAtest:<function>[@<scenario>]').
-	[string[]]$TestName = @('*'),
+	[string]$TestName = '*',
 	# If specified, outputs log messages to the given file.
 	[string]$LogFile,
 	# If specified, suppresses output messages.
@@ -39,28 +39,20 @@ $Global:ProgressPreference = 'SilentlyContinue'
 	Outputs colored text to the console.
 .DESCRIPTION
 	The Out-Colored function outputs colored text to the console with optional bold, underline, and message detail.
-.PARAMETER Color
-	The color of the text (e.g., 'Red', 'Green', 'Blue').
-.PARAMETER Message
-	The main message to display.
-.PARAMETER MessageDetail
-	Additional details to display (optional). Will be displayed in dimmed color.
-.PARAMETER Bold
-	If specified, the text will be bold.
-.PARAMETER Underline
-	If specified, the text will be underlined.
-.PARAMETER NoNewLine
-	If specified, the output will not end with a new line.
-.PARAMETER StdErr
-	If specified, the output will be sent to standard error instead of standard output.
 #>
 function Out-Colored {
 	param(
+		# The color of the text (e.g., 'Red', 'Green', 'Blue').
 		[string]$Color,
+		# The main message to display.
 		[string]$Message,
+		# Additional details to display (optional). Will be displayed in dimmed color.
 		[string]$MessageDetail = '',
-		[switch]$Bold,
-		[switch]$Underline,
+		# # If specified, the text will be bold.
+		# [switch]$Bold,
+		# # If specified, the text will be underlined.
+		# [switch]$Underline,
+		# If specified, the output will be sent to standard error instead of standard output.
 		[switch]$StdErr
 	)
 	if ($Message.Length -gt 0) { $Message = "$Message " }
@@ -88,8 +80,8 @@ function Out-Colored {
 			default { 0 } # Default to no color
 		}
 		$styleCode = ''
-		if ($Bold) { $styleCode += ';1' }
-		if ($Underline) { $styleCode += ';4' }
+		# if ($Bold) { $styleCode += ';1' }
+		# if ($Underline) { $styleCode += ';4' }
 		$message = "`u{001b}[${colorCode}${styleCode}m${Message}`u{001b}[2m${MessageDetail}`u{001b}[0m"
 	}
 	if ($StdErr) { [Console]::Error.WriteLine($message) } else { [Console]::Out.WriteLine($message) }
@@ -121,19 +113,16 @@ function YANAtest:YanaTestResult@has_passed_and_failed_properties {
 .SYNOPSIS
 	Discovers test functions based on pattern(s) specified in the $TestName parameter.
 .PARAMETER TestName
-	An array of test function names to discover.
+	A test function name to discover. Supports wildcards.
 	Defaults to all test functions in the current session.
 .OUTPUTS
 	Array of test function names that match the specified pattern(s).
 #>
-function Get-YanaTest([string[]]$TestName = @('*')) {
+function Get-YanaTest([string]$TestName = '*') {
 	$Local:YANA_testPrefix = 'YANAtest:'
 	$Local:test_patterns = @()
-	foreach ($tn in $TestName) {
-		# if (-not $tn.EndsWith('.ps1')) { $tn += '.ps1' }
-		if (-not $tn.StartsWith($Local:YANA_testPrefix)) { $tn = "$Local:YANA_testPrefix${tn}" }
-		$Local:test_patterns += "Function:/$tn"
-	}
+	if (-not $TestName.StartsWith($Local:YANA_testPrefix)) { $TestName = "$Local:YANA_testPrefix${TestName}" }
+	$Local:test_patterns += "Function:/$TestName"
 	Get-Item $Local:test_patterns -ErrorAction SilentlyContinue | ForEach-Object {
 		$_.Name
 	}
@@ -177,22 +166,20 @@ function YANAtest:Get-YanaTest@no_matching_tests {
 	Discovers test files based on pattern(s) specified in the $TestFile parameter.
 .DESCRIPTION
 	Discovers test files in the current directory and subdirectories.
-.PARAMETER TestFile
-	An array of test file names to discover.
-	Defaults to all test files in the current directory and subdirectories.
 .PARAMETER TestDir
 	The base path to start searching for test files.
 	Defaults to the current working directory.
+.PARAMETER TestFile
+	A test file name to discover. Supports wildcards.
+	Defaults to all test files in the current directory and subdirectories.
 .OUTPUTS
 	List of test files that match the specified pattern(s).
 #>
-function Get-YanaTestFile([string[]]$TestFile = @('*'), [string]$TestDir = $PWD) {
-	foreach ($tf in $TestFile) {
-		if (-not $tf.EndsWith('.ps1')) { $tf = "${tf}.ps1" }
-		try {
-			Get-ChildItem -Path $TestDir -Recurse -Filter '*.ps1' -Include $tf -ErrorAction Ignore
-		} catch { $null }
-	}
+function Get-YanaTestFile([string]$TestDir = $PWD, [string]$TestFile = '*') {
+	if (-not $TestFile.EndsWith('.ps1')) { $TestFile = "${TestFile}.ps1" }
+	try {
+		Get-ChildItem -Path $TestDir -Recurse -Filter '*.ps1' -Include $TestFile -ErrorAction Ignore
+	} catch { $null }
 }
 
 function YANAtest:Get-YanaTestFile@discover_test_files {
@@ -232,10 +219,13 @@ function YANAtest:Get-YanaTestFile@with_specific_pattern {
 	Invokes specific test function(s) and captures results.
 .DESCRIPTION
 	Invokes specific test function(s) and captures results.
+.PARAMETER TestName
+	A test function name to invoke. Supports wildcards.
+	Defaults to all test functions in the current session.
 .OUTPUTS
 	YanaTestResult with Passed and Failed tests.
 #>
-function Invoke-YanaTest([string[]]$TestName = @('*')) {
+function Invoke-YanaTest([string]$TestName = '*') {
 
 	<#
 	.SYNOPSIS
@@ -268,7 +258,7 @@ function Invoke-YanaTest([string[]]$TestName = @('*')) {
 		$YANA_subtests_ref.Value.Failed++
 	}
 
-	$Local:YANA_tests = Get-YanaTest $TestName
+	$Local:YANA_tests = Get-YanaTest -TestName $TestName
 	$Local:YANA_testResult = [YanaTestResult]::new()
 	$Local:YANA_subtests = @{}
 	foreach ($YANA_test in $Local:YANA_tests) {
@@ -328,13 +318,14 @@ function YANAtest:Invoke-YanaTest@exception_in_test {
 .PARAMETER TestFile
 	The path to the test file to invoke.
 .PARAMETER TestName
-	An array of test function names to invoke. Defaults to all tests in the file.
+	A test function name to invoke. Supports wildcards.
+	Defaults to all tests in the file.
 .PARAMETER Quiet
 	If specified, suppresses output messages.
 .OUTPUTS
 	YanaTestResult with Passed and Failed tests.
 #>
-function Invoke-YanaTestFile([string]$TestFile, [string[]]$TestName = @('*')) {
+function Invoke-YanaTestFile([string]$TestFile, [string]$TestName = '*') {
 	$Local:YANA_testResult = [YanaTestResult]::new()
 
 	if ([string]::IsNullOrEmpty($TestFile)) {
@@ -364,13 +355,15 @@ function Invoke-YanaTestFile([string]$TestFile, [string[]]$TestName = @('*')) {
 	The main entry point for running tests.
 .DESCRIPTION
 	Invokes test(s) from the specified test file(s) and collects the results.
-.PARAMETER TestFile
-	An array of test file paths to invoke.
 .PARAMETER TestDir
 	The base path to start searching for test files.
 	Defaults to the current working directory.
+.PARAMETER TestFile
+	A test file path to invoke. Supports wildcards.
+	Defaults to all test files in the specified directory and subdirectories.
 .PARAMETER TestName
-	An array of test function names to invoke. Defaults to all tests in the specified files.
+	A test function name to invoke. Supports wildcards.
+	Defaults to all tests in the specified test file(s).
 .PARAMETER Quiet
 	If specified, suppresses output messages.
 .OUTPUTS
@@ -378,10 +371,11 @@ function Invoke-YanaTestFile([string]$TestFile, [string[]]$TestName = @('*')) {
 .NOTES
 	Exits with a non-zero status code if any tests failed.
 #>
-function Invoke-YanaTesting ([string[]]$TestFile = @('*'), [string]$TestDir = $PWD, [string[]]$TestName = @('*')) {
+function Invoke-YanaTesting ([string]$TestDir = $PWD, [string]$TestFile = '*', [string]$TestName = '*') {
 
 	$Local:YANA_testingResult = [YanaTestResult]::new()
-	foreach ($file in (Get-YanaTestFile $TestFile -TestDir $TestDir)) {
+	$Local:YANA_testFiles = Get-YanaTestFile -TestFile $TestFile -TestDir $TestDir
+	foreach ($file in $Local:YANA_testFiles) {
 		$test_result = Invoke-YanaTestFile -TestFile $file.FullName -TestName $TestName
 		$Local:YANA_testingResult.Passed += $test_result.Passed
 		$Local:YANA_testingResult.Failed += $test_result.Failed
@@ -392,5 +386,5 @@ function Invoke-YanaTesting ([string[]]$TestFile = @('*'), [string]$TestDir = $P
 
 # Prevent running when dot-sourced
 if ($MyInvocation.InvocationName -ne '.') {
-	Invoke-YanaTesting -TestFile $TestFile -TestDir $TestDir -TestName $TestName
+	Invoke-YanaTesting -TestDir $TestDir -TestFile $TestFile -TestName $TestName
 }
