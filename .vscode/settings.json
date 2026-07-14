@@ -1,8 +1,15 @@
 {
     "bashIde.includeAllWorkspaceSymbols": true,
-    // "bashIde.enableSourceErrorDiagnostics": true,
     "bashIde.shfmt.languageDialect": "bash",
+    "bashIde.enableSourceErrorDiagnostics": true,
     "bashIde.shfmt.simplifyCode": true,
+    "[shellscript]": {
+        "files.eol": "\n",
+        "editor.defaultColorDecorators": "never",
+        "editor.useTabStops": true,
+        "editor.tabSize": 2,
+        "editor.insertSpaces": false
+    },
     "powershell.codeFormatting.pipelineIndentationStyle": "IncreaseIndentationAfterEveryPipeline",
     "powershell.codeFormatting.trimWhitespaceAroundPipe": true,
     "powershell.codeFormatting.newLineAfterCloseBrace": false,
@@ -17,14 +24,11 @@
     "powershell.debugging.executeMode": "Call",
     "powershell.helpCompletion": "LineComment",
     "[powershell]": {
+        // "files.eol": "\r\n",
         "editor.useTabStops": false,
         "editor.tabSize": 2,
         "editor.insertSpaces": true,
-        "editor.detectIndentation": true,
     },
-    "editor.useTabStops": true,
-    "editor.tabSize": 2,
-    "editor.insertSpaces": false,
     "editor.detectIndentation": true,
     "files.trimTrailingWhitespace": true,
     "files.trimFinalNewlines": true,
