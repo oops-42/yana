@@ -25,11 +25,10 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-latest
     needs: tests
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     steps:
       - uses: actions/checkout@v7
-        if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
       - name: Set Version in YANA scripts
-        if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
         shell: bash
         run: |
           VERSION="${GITHUB_REF#v}"
@@ -38,7 +37,6 @@ jobs:
         env:
           GITHUB_REF: ${{ github.ref_name }}
       - name: Release
-        if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
         uses: softprops/action-gh-release@v3
         with:
           prerelease: true
