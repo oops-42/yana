@@ -6,11 +6,11 @@ on:
     branches:
       - main
 jobs:
-  build:
+  tests:
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: Run YANA tests (bash)
         shell: bash
         run: ./yana_tests.sh
