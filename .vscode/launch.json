@@ -5,18 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Bash-Debug Launch Current File",
+            "type": "bashdb",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${file}"
+        },
+        {
             "name": "PowerShell Launch Current File",
             "type": "PowerShell",
             "request": "launch",
             "script": "${file}",
             "cwd": "${cwd}"
-        },
-        {
-            "type": "bashdb",
-            "request": "launch",
-            "name": "Bash-Debug (simplest configuration)",
-            "program": "${file}",
-            "showDebugOutput": true
         }
     ]
 }
