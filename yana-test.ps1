@@ -19,7 +19,9 @@
 Set-Variable -Name YANA_TITLE -Value 'YANA Testing Framework (PowerShell)' -Option Constant -Scope Global -ErrorAction:Ignore
 Set-Variable -Name YANA_VERSION -Value 'YANAVERSIONPLACEHOLDER' -Option Constant -Scope Global -ErrorAction:Ignore
 
-Set-Variable -Name YANA_TEST_FUNCTION_PREFIX -Value 'YANAtest:' -Option Constant -Scope Global -ErrorAction:Ignore
+function YANAtest:example {
+  pass 'Example test passed'
+}
 
 function Out-Colored {
   # .SYNOPSIS
@@ -87,23 +89,6 @@ class YanaTestResult {
   [int]$Failed = 0
 }
 
-
-function Get-YanaTestFunction {
-  # .SYNOPSIS
-  # 	Discovers test functions based on pattern specified in the $TestName parameter.
-  # .OUTPUTS
-  #   [string[]] Array of test function names that match the specified pattern.
-  param(
-    # A test function name to discover. Supports wildcards.
-    # Defaults to all test functions in the current session.
-    [string]$TestName = '*'
-  )
-  $Local:test_patterns = @()
-  if (-not $TestName.StartsWith($YANA_TEST_FUNCTION_PREFIX)) { $TestName = "${YANA_TEST_FUNCTION_PREFIX}${TestName}" }
-  $Local:test_patterns += "Function:/$TestName"
-  Get-Item $Local:test_patterns -ErrorAction SilentlyContinue | ForEach-Object { $_.Name	}
-}
-
 function Get-YanaTestFile {
   # .SYNOPSIS
   # 	Discovers test files based on pattern(s) specified in the $TestFile parameter.
@@ -126,6 +111,22 @@ function Get-YanaTestFile {
   } catch { $null }
 }
 
+function Get-YanaTestFunction {
+  # .SYNOPSIS
+  # 	Discovers test functions based on pattern specified in the $TestName parameter.
+  # .OUTPUTS
+  #   [string[]] Array of test function names that match the specified pattern.
+  param(
+    # A test function name to discover. Supports wildcards.
+    # Defaults to all test functions in the current session.
+    [string]$TestName = '*'
+  )
+  $Local:test_patterns = @()
+  if (-not $TestName.StartsWith('YANAtest:')) { $TestName = "YANAtest:$TestName" }
+  $Local:test_patterns += "Function:/$TestName"
+  Get-Item $Local:test_patterns -ErrorAction SilentlyContinue | ForEach-Object { $_.Name	}
+}
+
 function Invoke-YanaTestFunction([string]$TestFunction) {
   # .SYNOPSIS
   # 	Invokes specific test function(s) and captures results.
@@ -135,6 +136,19 @@ function Invoke-YanaTestFunction([string]$TestFunction) {
   # 	A test function name to invoke.
   # .OUTPUTS
   # 	[YanaTestResult] with Passed and Failed tests.
+
+  if ([string]::IsNullOrEmpty($TestFunction)) {
+    Out-ColoredStderr -Color red -Message 'Error: Test function name shall not be empty'
+    return [YanaTestResult]::new()
+  }
+  if (-not $TestFunction.StartsWith('YANAtest:')) {
+    Out-ColoredStderr -Color red -Message "Error: Test function name must start with 'YANAtest:', got: '$TestFunction'"
+    return [YanaTestResult]::new()
+  }
+  if (-not (Test-Path "Function:/$TestFunction")) {
+    Out-ColoredStderr -Color red -Message "Error: Test function '$TestFunction' does not exist"
+    return [YanaTestResult]::new()
+  }
 
   function pass ([string]$Message = '') {
     # .SYNOPSIS
@@ -161,19 +175,6 @@ function Invoke-YanaTestFunction([string]$TestFunction) {
     Out-ColoredStderr -Color red -Message "`t[-] ${Message}" -MessageDetail $location
     $YANA_testResult.Failed++
     # $YANA_subtests_ref.Value.Failed++
-  }
-
-  if ([string]::IsNullOrEmpty($TestFunction)) {
-    Out-ColoredStderr -Color red -Message 'Error: Test function name shall not be empty'
-    return [YanaTestResult]::new()
-  }
-  if (-not $TestFunction.StartsWith($YANA_TEST_FUNCTION_PREFIX)) {
-    Out-ColoredStderr -Color red -Message "Error: Test function name must start with '$YANA_TEST_FUNCTION_PREFIX'"
-    return [YanaTestResult]::new()
-  }
-  if (-not (Test-Path "Function:/$TestFunction")) {
-    Out-ColoredStderr -Color red -Message "Error: Test function '$TestFunction' does not exist"
-    return [YanaTestResult]::new()
   }
 
   Out-ColoredStderr -Color cyan -Message 'Running test function' -MessageDetail $TestFunction
@@ -205,7 +206,7 @@ function Invoke-YanaTestFile {
   $Local:YANA_testResult = [YanaTestResult]::new()
 
   if ([string]::IsNullOrEmpty($TestFile)) {
-    Out-ColoredStderr -Color red -Message 'Error: Test file argument is required'
+    Out-ColoredStderr -Color red -Message 'Error: Test file name shall not be empty'
     return $Local:YANA_testResult
   }
 
@@ -219,7 +220,7 @@ function Invoke-YanaTestFile {
     try {
       . $TestFile
     } catch {
-      Out-ColoredStderr -Color red -Message "Error: Failed to import test file '$TestFile'" -MessageDetail $_.Exception.Message
+      Out-ColoredStderr -Color red -Message "Error: Failed to import test file" -MessageDetail "$TestFile`n$($_.Exception.Message)"
       return $Local:YANA_testResult
     }
     Get-YanaTestFunction -TestName $TestName | ForEach-Object {
@@ -231,7 +232,7 @@ function Invoke-YanaTestFile {
       }
     }
   } else {
-    Out-ColoredStderr -Color red -Message "Error: Test file '$TestFile' does not exist" -MessageDetail $TestFile
+    Out-ColoredStderr -Color red -Message 'Error: Test file not found' -MessageDetail $TestFile
   }
 
   Out-ColoredStderr -Color yellow -Message "Passed: $($Local:YANA_testResult.Passed)`tFailed: $($Local:YANA_testResult.Failed)" -MessageDetail $TestFile
