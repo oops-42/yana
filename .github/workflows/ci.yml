@@ -1,0 +1,19 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run YANA tests (bash)
+        shell: bash
+        run: ./yana/yana_tests.sh
+      - name: Run YANA tests (pwsh)
+        shell: pwsh
+        run: ./yana/yana_tests.ps1
