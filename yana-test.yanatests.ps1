@@ -202,9 +202,9 @@ function YANAtest:Invoke-YanaTestFunction@name_not_prefixed {
   if ($Script:mock_buffer[0].Color -eq 'red') {
     pass 'Output color is red for error message'
   } else { fail "Expected output color to be 'red', got: $($Script:mock_buffer[0].Color)" }
-  if ($Script:mock_buffer[0].Message -eq "Error: Test function name must start with 'YANAtest:'") {
+  if ($Script:mock_buffer[0].Message -eq "Error: Test function name must start with 'YANAtest:', got: 'NonPrefixedTestFunction'") {
     pass 'Correct error message is generated for non-prefixed test function'
-  } else { fail "Expected error message 'Error: Test function name must start with 'YANAtest:'', got: $($Script:mock_buffer[0].Message)" }
+  } else { fail "Expected error message `"Error: Test function name must start with 'YANAtest:', got: 'NonPrefixedTestFunction'`", got: '$($Script:mock_buffer[0].Message)'" }
 }
 
 function YANAtest:Invoke-YanaTestFunction@exception_in_test {
