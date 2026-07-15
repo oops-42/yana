@@ -29,7 +29,3 @@ Use existing blueprints and modules whenever possible.
 - [Routines and Events](routines-events.md) - Structuring execution and reacting to lifecycle events
 - [Testing Framework](testing.md) - Writing and running tests for your actions and helpers
 - [Contributing](contributing.md) - How to contribute to YANA
-
-## License
-
-YANA is licensed under the [MIT License](https://github.com/oops-42/yana/blob/main/LICENSE).
