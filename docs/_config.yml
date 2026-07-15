@@ -7,3 +7,5 @@ nav_sort: order
 
 plugins:
   - jekyll-remote-theme
+
+# color_scheme: dark
