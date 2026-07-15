@@ -6,7 +6,7 @@ url: https://oops-42.github.io/yana
 nav_sort: order
 
 nav_external_links:
-  - title: YANA code and issue tracker
+  - title: YANA Code Repository
     url: https://github.com/oops-42/yana
     hide_icon: false
     opens_in_new_tab: true
@@ -19,6 +19,4 @@ plugins:
   - jekyll-remote-theme
 
 mermaid:
-  # Version of mermaid library
-  # Pick an available version from https://cdn.jsdelivr.net/npm/mermaid/
   version: "11.16.0"
