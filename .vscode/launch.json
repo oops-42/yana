@@ -36,12 +36,7 @@
             "name": "PowerShell (yana-test)",
             "type": "PowerShell",
             "request": "launch",
-            "script": "${workspaceFolder}/yana-test.ps1",
             "cwd": "${workspaceFolder}",
-            "args": [
-                "-testfile",
-                "${relativeFile}"
-            ],
             "createTemporaryIntegratedConsole": true
         }
     ]
