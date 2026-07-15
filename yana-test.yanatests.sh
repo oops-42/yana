@@ -16,7 +16,7 @@ function YANAtest:get_yana_test_function@no_matching_tests {
 }
 
 function YANAtest:get_yana_test_function@discover_with_wildcard {
-	local test_name_pattern="${1:-$YANA_TEST_FUNCTION_PREFIX*}"
+	local test_name_pattern="${1:-YANAtest:*}"
 	function YANAtest:Sample1 { :; }
 	function YANAtest:Sample2@ { :; }
 	function YANAtest:Sample3@test { :; }

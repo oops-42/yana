@@ -232,7 +232,7 @@ function Invoke-YanaTestFile {
     try {
       . $TestFile
     } catch {
-      Out-ColoredStderr -Color red -Message 'Error: Failed to import test file' -MessageDetail "$TestFile`n$($_.Exception.Message)"
+      Out-ColoredStderr -Color red -Message "Error: Failed to import test file" -MessageDetail "$TestFile`n$($_.Exception.Message)"
       return $Local:YANA_testResult
     }
     Get-YanaTestFunction -TestName $TestName | ForEach-Object {
@@ -243,7 +243,6 @@ function Invoke-YanaTestFile {
         $Local:YANA_testResult.Passed += 1
       }
     }
-    Out-ColoredStderr -Color yellow -Message "Passed: $($Local:YANA_testResult.Passed)`tFailed: $($Local:YANA_testResult.Failed)" -MessageDetail $TestFile
   } else {
     Out-ColoredStderr -Color red -Message 'Error: Test file not found' -MessageDetail $TestFile
   }

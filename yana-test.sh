@@ -25,13 +25,13 @@ fi
 [[ -z ${YANA_VERSION:-} ]] && builtin readonly YANA_VERSION='YANAVERSIONPLACEHOLDER'
 
 # Demonstrates passing a test case using the pass function.
-function YANAtest:pass {
+function YANAtest:example@pass {
 	pass
 	pass 'This test should pass'
 }
 
 # Demonstrates catching command failures inside a test function.
-function YANAtest:exception {
+function YANAtest:example@exception {
 	if ! (exit 1); then
 		pass 'Caught expected failure'
 	else
