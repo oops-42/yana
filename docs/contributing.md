@@ -1,6 +1,6 @@
 ---
 title: Contributing
-nav_order: 8
+nav_order: 9
 ---
 
 # Contributing
@@ -20,7 +20,7 @@ Contributions to YANA and YANA Modules are welcome.
 2. Write or update tests for any changed behavior using the [Testing Framework](testing.md).
 3. Ensure all tests pass:
    ```bash
-   ./yana-test.sh
+   yana-test
    ```
 4. Keep changes focused and minimal. One concern per PR.
 5. Open a pull request with a clear description of the change and why it is needed.

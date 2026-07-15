@@ -9,14 +9,18 @@ This page explains the core components of YANA and how they fit together.
 
 ## Overview
 
-```
-[Blueprint + Modules]
-        |
-        v
-[YANA Toolkit] --> compiles --> [yanapack]
-                                    |
-                                    v
-                              [YANA Engine] --> applies to --> [Node]
+```mermaid
+flowchart TB
+    bp([Blueprint]) --> tool[YANA Toolkit];
+    tool -->| fetch | modules([Fetches Modules]);
+    tool -->| test | tests([Runs Tests]);
+    tool -->| compile | yanaspec([Creates yanaspec]);
+    tool -->| package | yanapack([Creates yanapack]);
+    tool -->| publish | repo([Publishes yanapack to Repository]);
+    repo --> | fetch | engine([YANA Engine]);
+    engine --> | apply | node_a([Applies to Node]);
+    engine --> | verify | node_v([Verifies Node]);
+
 ```
 
 ## YANA Engine

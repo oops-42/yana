@@ -1,17 +1,16 @@
 ---
-title: Blueprints and Modules
-nav_order: 4
+title: Blueprints
+parent: Concepts
+nav_order: 2
 ---
 
-# Blueprints and Modules
+# Blueprints
 
-## Blueprint
-
-A **YANA Blueprint** is a YAML file (`.yana.yaml`) that describes your automation: its configuration, dependencies, routines and lifecycle events.
+**YANA Blueprint** is a YAML file (`.yana.yaml`) that describes your automation: metadata, parameters, modules and dependencies, routines and lifecycle events.
 
 You are free to choose the structure of your blueprints - use a single file describing everything or split into multiple focused files.
 
-### Blueprint Fields
+## Blueprint Fields
 
 A blueprint can define:
 
@@ -22,13 +21,24 @@ A blueprint can define:
 | `description` | Short description |
 | `author` | Author name or contact |
 | `license` | License identifier (e.g. `MIT`) |
-| `dependencies` | List of modules this blueprint depends on |
+| `modules` | List of modules this blueprint depends on |
+| `params` | List of parameters this blueprint accepts |
+| `extends` | List of blueprints this blueprint extends (inherits from) |
 | `routines` | Named sets of actions to execute |
 | `events` | Lifecycle event handlers |
 
 > Full schema reference is coming. Fields above reflect current understanding and are subject to change.
 
-### Example Blueprint
+## Dependencies
+
+Dependencies are declared in the blueprint in `modules` section and resolved by YANA Toolkit before packaging. Sources can be:
+
+- A local path
+- A Git repository URL
+
+YANA Toolkit fetches all dependencies and bundles them into the yanapack, so the target node does not need network access at apply time.
+
+## Example Blueprint
 
 ```yaml
 name: my-module
@@ -37,54 +47,25 @@ description: Example YANA module
 author: Your Name
 license: MIT
 
-dependencies:
-  - source: https://github.com/oops-42/yana-modules
-    module: common/apt
+params:
+  nginx_port: 8080
+
+modules:
+  stdlib:
+    source: git@github.com:oops-42/yana-modules.git
+    path: std
+  nginx:
+    source: ${env:HOME}/my-modules
+    path: extras/nginx
+
+extends:
+  - nginx
 
 routines:
   .:
-    - action: apt:install
+    - action: install_packages
       args:
         packages:
           - curl
           - git
 ```
-
-## Module
-
-A **YANA Module** is a directory containing a `.yana.yaml` blueprint file and any supporting files (scripts, templates, binaries, etc.).
-
-### Module Structure
-
-```
-my-module/
-  .yana.yaml          # blueprint file (required)
-  .yanaignore         # list of files to exclude from yanapack (optional)
-  .yana/              # directory for helpers, actions and verifiers
-    helpers.sh
-    actions.sh
-    verifiers.sh
-  templates/          # any other files your module needs
-  files/
-```
-
-### .yanaignore
-
-The `.yanaignore` file works like `.gitignore` and controls what gets excluded from the built yanapack.
-
-By default, the following are always excluded:
-- `.git`, `.gitignore`, `.yanaignore`, `.yana.yaml`
-- `*.yanatests.sh`, `*.yanatests.ps1`
-
-### Sub-modules
-
-A module may contain sub-modules: sub-directories that have their own `.yana.yaml` file. The Toolkit resolves them recursively.
-
-## Dependencies
-
-Dependencies are declared in the blueprint and resolved by the Toolkit before packaging. Sources can be:
-
-- A local path
-- A Git repository URL
-
-The Toolkit fetches all dependencies and bundles them into the yanapack so the target node does not need network access at apply time.

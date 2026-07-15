@@ -42,7 +42,7 @@ Apply a blueprint to the current node:
 
 ```bash
 # Bash
-./yana.sh
+yana apply -source
 
 # PowerShell
 ./yana.ps1

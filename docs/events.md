@@ -1,5 +1,6 @@
 ---
-title: Routines and Events
+title: Events
+parent: Concepts
 nav_order: 6
 ---
 
