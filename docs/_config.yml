@@ -5,6 +5,16 @@ url: https://oops-42.github.io/yana
 
 nav_sort: order
 
+nav_external_links:
+  - title: YANA code and issue tracker
+    url: https://github.com/oops-42/yana
+    hide_icon: false
+    opens_in_new_tab: true
+  - title: YANA Modules Repository
+    url: https://github.com/oops-42/yana-modules
+    hide_icon: false
+    opens_in_new_tab: true
+
 plugins:
   - jekyll-remote-theme
 
