@@ -94,7 +94,7 @@
     // Update the button UI label based on the chosen preference
     if (toggleBtn) {
       if (!state || state === 'system') {
-        toggleBtn.innerHTML = `⚙️ Theme: System (${actualTheme === 'dark' ? 'Dark' : 'Light'})`;
+        toggleBtn.innerHTML = '💻 Theme: System';
       } else if (state === 'dark') {
         toggleBtn.innerHTML = '🌙 Theme: Dark';
       } else {
