@@ -18,8 +18,8 @@
     // Update the button UI label based on the chosen preference
     if (toggleBtn) {
       if (!state || state === 'system') {
-        toggleBtn.innerHTML = '💻';
-        toggleBtn.setAttribute('title', 'Theme: System');
+        toggleBtn.innerHTML = '🌓';
+        toggleBtn.setAttribute('title', 'Theme: Automatic (System)');
       } else if (state === 'dark') {
         toggleBtn.innerHTML = '🌙';
         toggleBtn.setAttribute('title', 'Theme: Dark');
