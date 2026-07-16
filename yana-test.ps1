@@ -298,10 +298,10 @@ function Invoke-YanaTesting {
     [string]$LogFile = $Env:YANA_LOGFILE,
     # If specified, suppresses output messages.
     # Uses YANA_QUIET environment variable if set.
-    [switch]$Quiet = [bool]$Env:YANA_QUIET,
+    [switch]$Quiet = $Env:YANA_QUIET -notin ('0', 'false', ''),
     # If specified, disables colored output.
     # Uses YANA_NOCOLOR environment variable if set.
-    [switch]$NoColor = [bool]$Env:YANA_NOCOLOR,
+    [switch]$NoColor = $Env:YANA_NOCOLOR -notin ('0', 'false', ''),
     # If specified, displays the version of the testing framework and exits.
     [switch]$Version,
     # If specified, displays help information and exits.

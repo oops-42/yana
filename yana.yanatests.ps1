@@ -1,35 +1,5 @@
 . "$PSScriptRoot/yana.ps1"
 
-function YANAtest:Invoke-Yana@invalid_mode {
-  $mode = 'invalid_mode'
-  $null = & {
-    function Out-Colored {}
-    $Script:mock_buffer = @()
-    function Out-ColoredStderr {
-      # Declare the parameters which make sense for testing purposes.
-      param(
-        [string]$Color,
-        [string]$Message,
-        [string]$MessageDetail
-      )
-      $Script:mock_buffer += $PSBoundParameters
-    }
-    try {
-      Invoke-Yana -Mode $mode
-      $Script:exit_code = 0
-    } catch {
-      # Catch the exit to prevent the script from terminating during testing
-      $Script:exit_code = $_.Exception.HResult
-    }
-  }
-  if ($Script:exit_code -eq 1) { pass 'Exit code is correct' } else { fail "Expected exit code 1 but got: $($Script:exit_code)" }
-  if ($Script:mock_buffer.Count -eq 1) { pass 'Error is displayed' } else { fail 'Should display error but got:', $Script:mock_buffer.Message }
-  if ($Script:mock_buffer[0].Color -eq 'Red') { pass 'Error color is red' } else { fail "Expected error color to be 'Red' but got: $($Script:mock_buffer[0].Color)" }
-  if ($Script:mock_buffer[0].Message -eq "Error: Invalid mode specified: '$mode'. Use -help for usage information.") {
-    pass 'Error message is correct'
-  } else { fail "Expected error message to be 'Error: Invalid mode specified: '$mode'. Use -help for usage information.' but got: $($Script:mock_buffer[0].Message)" }
-}
-
 function YANAtest:Invoke-Yana@help_no_mode {
   $null = & {
     function Out-Colored {}

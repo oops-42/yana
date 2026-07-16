@@ -1,9 +1,11 @@
 #!/usr/bin/env pwsh
-
 #Requires -Version 5.1
+# ---------------------------------------------------------------------------
+# YANA - Yet Another Node Automator (PowerShell)
+# ---------------------------------------------------------------------------
 
-$YANA_TITLE = 'YANA - Yet Another Node Automator'
-$YANA_VERSION = '0.1.0'
+Set-Variable -Name YANA_TITLE -Value 'YANA - Yet Another Node Automator (PowerShell)' -Option Constant -Scope Global -ErrorAction:Ignore
+Set-Variable -Name YANA_VERSION -Value 'YANAVERSIONPLACEHOLDER' -Option Constant -Scope Global -ErrorAction:Ignore
 
 function Out-Colored {
   # .SYNOPSIS
@@ -152,22 +154,23 @@ function Invoke-Yana {
   # .SYNOPSIS
   # 	The main entry point for YANA.
   param(
+    # If specified, outputs the version and exits.
     [switch]$Version,
+    # If specified, outputs help information and exits.
     [switch]$Help,
     [Parameter(Position = 0)]
     [string]$Mode = $Env:YANA_MODE,
     [Parameter(Position = 1)]
     [string]$Source = $Env:YANA_SOURCE,
-    # [switch]$DryRun = [bool]$Env:YANA_DRYRUN,
     # If specified, outputs log messages to the given file.
     # Uses YANA_LOGFILE environment variable if set.
     [string]$LogFile = $Env:YANA_LOGFILE,
     # If specified, suppresses output messages.
     # Uses YANA_QUIET environment variable if set.
-    [switch]$Quiet = [bool]$Env:YANA_QUIET,
+    [switch]$Quiet = $Env:YANA_QUIET -notin ('0', 'false', ''),
     # If specified, disables colored output.
     # Uses YANA_NOCOLOR environment variable if set.
-    [switch]$NoColor = [bool]$Env:YANA_NOCOLOR
+    [switch]$NoColor = $Env:YANA_NOCOLOR -notin ('0', 'false', '')
   )
   # Disable progress bar output
   $Global:ProgressPreference = 'SilentlyContinue'
