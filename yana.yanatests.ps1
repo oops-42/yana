@@ -58,7 +58,7 @@ function YANAtest:Invoke-Yana@help_with_mode {
 function YANAtest:Invoke-Yana@version {
   function Out-Colored {}
   $test_result = Invoke-Yana -Version
-  if ($test_result -eq $YANA_VERSION) { pass 'Version output is correct' } else { fail "Expected version output to be '$YANA_VERSION' but got: $test_result" }
+  if ($test_result -eq $Script:YANA_VERSION) { pass 'Version output is correct' } else { fail "Expected version output to be '$Script:YANA_VERSION' but got: $test_result" }
 }
 
 function YANAtest:Invoke-Yana@mode_apply {

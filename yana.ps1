@@ -4,8 +4,8 @@
 # YANA - Yet Another Node Automator (PowerShell)
 # ---------------------------------------------------------------------------
 
-Set-Variable -Name YANA_TITLE -Value 'YANA - Yet Another Node Automator (PowerShell)' -Option Constant -Scope Global -ErrorAction:Ignore
-Set-Variable -Name YANA_VERSION -Value 'YANAVERSIONPLACEHOLDER' -Option Constant -Scope Global -ErrorAction:Ignore
+Set-Variable -Name YANA_TITLE -Value 'YANA - Yet Another Node Automator (PowerShell)' -Option Constant -Scope Script -ErrorAction:Ignore
+Set-Variable -Name YANA_VERSION -Value 'YANAVERSIONPLACEHOLDER' -Option Constant -Scope Script -ErrorAction:Ignore
 
 function Out-Colored {
   # .SYNOPSIS
@@ -167,18 +167,18 @@ function Invoke-Yana {
     [string]$LogFile = $Env:YANA_LOGFILE,
     # If specified, suppresses output messages.
     # Uses YANA_QUIET environment variable if set.
-    [switch]$Quiet = $Env:YANA_QUIET -notin ('0', 'false', ''),
+    [switch]$Quiet = "$Env:YANA_QUIET" -notin ('0', 'false', ''),
     # If specified, disables colored output.
     # Uses YANA_NOCOLOR environment variable if set.
-    [switch]$NoColor = $Env:YANA_NOCOLOR -notin ('0', 'false', '')
+    [switch]$NoColor = "$Env:YANA_NOCOLOR" -notin ('0', 'false', '')
   )
   # Disable progress bar output
-  $Global:ProgressPreference = 'SilentlyContinue'
+  $Script:ProgressPreference = 'SilentlyContinue'
 
-  Out-ColoredStderr -Message $YANA_TITLE -MessageDetail "Version: $YANA_VERSION"
+  Out-ColoredStderr -Message $Script:YANA_TITLE -MessageDetail "Version: $Script:YANA_VERSION"
 
   if ($Help) { Out-Help -Mode $Mode; return }
-  if ($Version) { Write-Output $YANA_VERSION; return }
+  if ($Version) { Write-Output $Script:YANA_VERSION; return }
   switch ($Mode) {
     'apply' {
       Invoke-YanaApply -Source $Source
