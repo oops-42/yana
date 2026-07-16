@@ -248,14 +248,25 @@ function invoke_yana_test_file {
 #   YANA_TESTFILE <pattern>        File name pattern. Defaults to '*'.
 #   YANA_TESTNAME <pattern>        Test function pattern. Defaults to '*'.
 function invoke_yana_testing {
-	out_colored_stderr '' "$YANA_TITLE" "Version: $YANA_VERSION"
-	parse_args "$@"
 	YANA_TESTDIR="${YANA_TESTDIR:-$PWD}"
 	YANA_TESTFILE="${YANA_TESTFILE:-*}"
 	YANA_TESTNAME="${YANA_TESTNAME:-*}"
 	YANA_LOGFILE="${YANA_LOGFILE:-}"
 	YANA_QUIET="${YANA_QUIET:-}"
 	YANA_NOCOLOR="${YANA_NOCOLOR:-}"
+	YANA_SHOW_HELP=false
+	YANA_SHOW_VERSION=false
+	parse_args "$@"
+
+	out_colored_stderr '' "$YANA_TITLE" "Version: $YANA_VERSION"
+	if [[ $YANA_SHOW_VERSION == true ]]; then
+		builtin echo "$YANA_VERSION"
+		builtin return 0
+	fi
+	if [[ $YANA_SHOW_HELP == true ]]; then
+		out_help
+		builtin return 0
+	fi
 
 	builtin local YANA_total_tests
 	YANA_total_tests=$(
@@ -274,7 +285,7 @@ function invoke_yana_testing {
 	done
 	builtin echo >&2
 	builtin echo -e "PASSED: $YANA_total_passed\tFAILED: $YANA_total_failed"
-	# if [[ $YANA_total_failed -gt 0 ]]; then builtin exit 1; fi
+	if [[ $YANA_total_failed -gt 0 ]]; then builtin return 1; fi
 }
 
 function out_help {
@@ -297,46 +308,44 @@ function parse_args {
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		-testdir)
-			[[ -n $2 ]] || throw 'Missing value for -testdir'
-			YANA_TESTDIR="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -testdir'
+			YANA_TESTDIR="$1"
 			;;
 		-testfile)
-			[[ -n $2 ]] || throw 'Missing value for -testfile'
-			YANA_TESTFILE="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -testfile'
+			YANA_TESTFILE="$1"
 			;;
 		-testname)
-			[[ -n $2 ]] || throw 'Missing value for -testname'
-			YANA_TESTNAME="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -testname'
+			YANA_TESTNAME="$1"
 			;;
 		-logfile)
-			[[ -n $2 ]] || throw 'Missing value for -logfile'
-			YANA_LOGFILE="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -logfile'
+			YANA_LOGFILE="$1"
 			;;
 		-quiet)
 			YANA_QUIET=true
-			builtin shift
 			;;
 		-nocolor)
 			YANA_NOCOLOR=true
-			builtin shift
 			;;
 		-version)
-			builtin echo "$YANA_VERSION"
-			builtin exit 0
+			YANA_SHOW_VERSION=true
 			;;
 		-help)
-			out_help
-			builtin exit 0
+			YANA_SHOW_HELP=true
 			;;
 		*)
 			out_help
 			throw "Unknown argument: $1"
 			;;
 		esac
+		builtin shift
+
 	done
 }
 

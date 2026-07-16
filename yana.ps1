@@ -213,8 +213,10 @@ if ($MyInvocation.InvocationName -ne '.') {
   try {
     Invoke-Yana @args
   } catch {
-    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host $_.ScriptStackTrace -ForegroundColor Red
+    $_fc = [Console]::ForegroundColor
+    [Console]::ForegroundColor = 'Red'
+    [Console]::Error.WriteLine("Error: $($_.Exception.Message)")
+    [Console]::ForegroundColor = $_fc
     exit 1
   }
 }

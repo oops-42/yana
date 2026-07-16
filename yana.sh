@@ -136,55 +136,37 @@ function out_help() {
 
 # Parse command-line arguments and set global variables accordingly.
 function parse_args() {
-	builtin local show_help=false
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
-		apply | verify | fetch)
+		apply | verify | fetch | -version)
 			YANA_MODE="$1"
-			builtin shift
 			;;
 		-source)
-			[[ -n $2 ]] || throw 'Missing value for -source'
-			YANA_SOURCE="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -source'
+			YANA_SOURCE="$1"
 			;;
 		-logfile)
-			[[ -n $2 ]] || throw 'Missing value for -logfile'
-			YANA_LOGFILE="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -logfile'
+			YANA_LOGFILE="$1"
 			;;
 		-quiet)
 			YANA_QUIET=true
-			builtin shift
 			;;
 		-nocolor)
 			YANA_NOCOLOR=true
-			builtin shift
-			;;
-		-version)
-			builtin echo "$YANA_VERSION"
-			builtin exit 0
 			;;
 		-help)
-			show_help=true
-			builtin shift
+			YANA_SHOW_HELP=true
 			;;
 		*)
 			out_help
 			throw "Unknown argument: $1"
 			;;
 		esac
+		builtin shift
 	done
-	if [[ $show_help == true ]]; then
-		out_help "$YANA_MODE"
-		builtin exit 0
-	fi
-	if [[ -z $YANA_MODE ]]; then
-		out_help
-		throw 'No mode specified. Please specify a mode: apply, verify, or fetch.'
-	fi
-	invoke_yana_"$YANA_MODE" "$YANA_SOURCE"
-
 }
 
 # Main entry point.
@@ -194,33 +176,27 @@ function invoke_yana() {
 	YANA_LOGFILE="${YANA_LOGFILE:-}"
 	YANA_QUIET="${YANA_QUIET:-}"
 	YANA_NOCOLOR="${YANA_NOCOLOR:-}"
-
-	out_colored_stderr '' "$YANA_TITLE" "Version: $YANA_VERSION"
+	YANA_SHOW_HELP=false
 	parse_args "$@"
 
-	# builtin local YANA_total_tests
-	# YANA_total_tests=$(
-	# 	get_yana_test_file "$_YANA_TESTDIR" "$_YANA_TESTFILE" |
-	# 		while IFS= builtin read -r test_file; do
-	# 			invoke_yana_test_file "$test_file"
-	# 		done
-	# )
-	# builtin local -i YANA_total_passed=0
-	# builtin local -i YANA_total_failed=0
-	# for r in $YANA_total_tests; do
-	# 	[[ $r != "${YANA_TEST_RESULT}:"* ]] && builtin continue
-	# 	r=${r#"${YANA_TEST_RESULT}:"}
-	# 	builtin local passed=${r%_*}
-	# 	builtin local failed=${r#*_}
-	# 	((YANA_total_passed += passed))
-	# 	((YANA_total_failed += failed))
-	# done
-	# builtin echo >&2
-	# builtin echo -e "PASSED: $YANA_total_passed\tFAILED: $YANA_total_failed"
-	# if [[ $YANA_total_failed -gt 0 ]]; then builtin exit 1; fi
+	out_colored_stderr '' "$YANA_TITLE" "Version: $YANA_VERSION"
+
+	if [[ $YANA_MODE == '-version' ]]; then
+		builtin echo "$YANA_VERSION"
+		builtin return 0
+	fi
+	if [[ $YANA_SHOW_HELP == true ]]; then
+		out_help "$YANA_MODE"
+		builtin return 0
+	fi
+	if [[ -z $YANA_MODE ]]; then
+		out_help
+		throw 'No mode specified. Please specify a mode: apply, verify, or fetch.'
+	fi
+	invoke_yana_"$YANA_MODE" "$YANA_SOURCE"
 }
 
 if [[ -z ${BASH_SOURCE[1]:-} ]] || [[ ${BASH_SOURCE[1]:-bashdb} == *bashdb ]]; then
 	# Proceed with the script execution only if it is executed directly or under bashdb.
-	invoke_yana "$@"
+	invoke_yana "$@" || return $?
 fi
