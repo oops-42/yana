@@ -138,28 +138,38 @@ function YANAtest:invoke_yana_test_function@with_test_function {
 }
 
 function YANAtest:invoke_yana_test_function@fail {
-	pass "$(_YANA_NOCOLOR=true fail 2>&1)"
-	pass "$(_YANA_NOCOLOR=true fail 'Test function failed as expected' 2>&1)"
+	pass "$(YANA_NOCOLOR=1 fail 2>&1)"
+	pass "$(YANA_NOCOLOR=1 fail 'Test function failed as expected' 2>&1)"
 }
 
 function YANAtest:invoke_yana_test_function@nonexistent_function {
 	local _rc=0
-	test_result=$(_YANA_NOCOLOR=true _YANA_QUIET=true invoke_yana_test_function 'YANAtest:NonExistentFunction' 2>/dev/null) || _rc=$?
+	test_result=$(
+		function out_colored { :; }
+		invoke_yana_test_function 'YANAtest:NonExistentFunction'
+	) || _rc=$?
 	[[ $_rc -ne 0 ]] && pass 'Nonexistent function returns non-zero exit' || fail 'Expected non-zero exit for nonexistent function'
 }
 
 function YANAtest:invoke_yana_test_function@invalid_prefix {
 	local _rc=0
-	test_result=$(_YANA_NOCOLOR=true _YANA_QUIET=true invoke_yana_test_function 'not_a_test_function' 2>/dev/null) || _rc=$?
+	test_result=$(
+		function out_colored { :; }
+		invoke_yana_test_function 'not_a_test_function' 2>/dev/null
+	) || _rc=$?
 	[[ $_rc -ne 0 ]] && pass 'Invalid prefix returns non-zero exit' || fail 'Expected non-zero exit for invalid prefix'
 }
 
 function YANAtest:invoke_yana_test_function@exception_in_test {
 	function YANAtest:_exception_subtest { return 1; }
 	local _rc=0
-	test_result=$(_YANA_NOCOLOR=true _YANA_QUIET=true invoke_yana_test_function 'YANAtest:_exception_subtest') || _rc=$?
+	test_result=$(
+		function out_colored { :; }
+		invoke_yana_test_function 'YANAtest:_exception_subtest'
+	) || _rc=$?
 	[[ $_rc -eq 1 ]] && pass 'Failing test function returns exit code 1' || fail "Expected exit code 1 for failing test, but got: $_rc"
 }
+
 
 function YANAtest:invoke_yana_test_file@no_args {
 
@@ -228,7 +238,6 @@ function YANAtest:invoke_yana_test_file@with_valid_content {
 	# - create a temporary test file
 	# - use mock functions
 	# - override the behavior of tested function using variable overrides
-
 	local tempFile
 	tempFile=$(mktemp --suffix='.sh')
 	cat >"$tempFile" <<'EOF'
@@ -246,12 +255,11 @@ EOF
 			echo 'YANAtest:TestFunction1@pass'
 			echo 'YANAtest:TestFunction2@fail'
 		}
+		function out_colored { :; }
 		# Override variables to suppress output and logging
-		_YANA_QUIET=true _YANA_LOGFILE='' _YANA_TESTNAME='*' invoke_yana_test_file "$tempFile" 2>/dev/null
+		YANA_TESTNAME='*' invoke_yana_test_file "$tempFile" 2>/dev/null
 	)
 	rm -f "$tempFile"
-
-	echo "Result: $test_result" >&2
 
 	parsed_result=$(parse_YanaTestResult "$test_result") || {
 		fail "Failed to parse YanaTestResult"

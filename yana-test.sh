@@ -40,27 +40,27 @@ function YANAtest:example@exception {
 }
 
 # Prepares colored text for output to the console.
-# Takes care of logging to a file if $_YANA_LOGFILE is specified.
-# If $_YANA_QUIET is specified, suppresses output.
-# If $_YANA_NOCOLOR is specified, disables colored output.
+# Takes care of logging to a file if $YANA_LOGFILE is specified.
+# If $YANA_QUIET is specified, suppresses output.
+# If $YANA_NOCOLOR is specified, disables colored output.
 function out_colored {
 	builtin local Color="${1:-${Color:-}}"
 	builtin local Message="${2:-${Message:-}}"
 	builtin local MessageDetail="${3:-${MessageDetail:-}}"
 
 	[[ -n $Message ]] && Message="$Message "
-	if [[ -n $_YANA_LOGFILE ]]; then
+	if [[ -n $YANA_LOGFILE ]]; then
 		builtin local logMessage
 		logMessage="[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] ${Message}${MessageDetail}"
-		echo -e "${logMessage}" >>"$_YANA_LOGFILE" || {
-			builtin local _logfile="$_YANA_LOGFILE"
-			_YANA_LOGFILE=""
+		echo -e "${logMessage}" >>"$YANA_LOGFILE" || {
+			builtin local _logfile="$YANA_LOGFILE"
+			YANA_LOGFILE=
 			out_colored red 'Error: Failed to write to log file' "$_logfile" >&2
 		}
 	fi
 
-	[[ $_YANA_QUIET == true ]] && builtin return
-	if [[ $_YANA_NOCOLOR == true ]]; then
+	[[ -n $YANA_QUIET ]] && builtin return
+	if [[ -n $YANA_NOCOLOR ]]; then
 		Message="${Message}${MessageDetail}"
 	else
 		builtin local ColorCode
@@ -110,21 +110,17 @@ function parse_YanaTestResult {
 }
 
 function get_yana_test_file {
-	# builtin local test_dir="${1:-$_YANA_TESTDIR}"
-	builtin local test_dir="${1:-}"
-	[[ -z $test_dir ]] && test_dir="$PWD"
-	builtin local test_file_pattern="${2:-$_YANA_TESTFILE}"
-	[[ -z $test_file_pattern ]] && test_file_pattern='*'
+	builtin local test_dir="${1:-$PWD}"
+	builtin local test_file_pattern="${2:-*}"
 	[[ $test_file_pattern != *'.sh' ]] && test_file_pattern="$test_file_pattern.sh"
 	out_colored_stderr blue "Discovering test files in directory '$test_dir' with pattern '$test_file_pattern'"
 	find "$test_dir" -type f -name "$test_file_pattern" 2>/dev/null
 }
 
-# Discovers test functions based on pattern specified in the $_YANA_TESTNAME parameter.
+# Discovers test functions based on pattern specified in the $YANA_TESTNAME parameter.
 # Outputs: List of test function names that match the specified pattern.
 function get_yana_test_function {
-	# builtin local test_name_pattern="${1:-$_YANA_TESTNAME}"
-	builtin local test_name_pattern="${1:-}"
+	builtin local test_name_pattern="${1:-*}"
 	[[ $test_name_pattern != YANAtest:* ]] && test_name_pattern="YANAtest:$test_name_pattern"
 
 	builtin declare -F |
@@ -222,7 +218,7 @@ function invoke_yana_test_file {
 	}
 	builtin local YANA_test_results
 	YANA_test_results=$(
-		get_yana_test_function "$_YANA_TESTNAME" |
+		get_yana_test_function "$YANA_TESTNAME" |
 			while IFS= builtin read -r test_fn; do
 				invoke_yana_test_function "$test_fn"
 			done
@@ -238,6 +234,7 @@ function invoke_yana_test_file {
 			((YANA_test_result_passed += 1))
 		fi
 	done
+
 	out_colored_stderr yellow "Passed: $YANA_test_result_passed\tFailed: $YANA_test_result_failed" "$test_file"
 	YanaTestResult "$YANA_test_result_passed" "$YANA_test_result_failed"
 	if [[ $YANA_test_result_failed -gt 0 ]]; then builtin return 1; fi
@@ -247,19 +244,33 @@ function invoke_yana_test_file {
 # and exits with code 1 if any tests failed.
 #
 # Params:
-#   _YANA_TESTDIR  <dir>            Base directory. Defaults to $_YANA_TESTDIR.
-#   _YANA_TESTFILE <pattern>        File name pattern. Defaults to '*'.
-#   _YANA_TESTNAME <pattern>        Test function pattern. Defaults to '*'.
+#   YANA_TESTDIR  <dir>            Base directory. Defaults to $YANA_TESTDIR.
+#   YANA_TESTFILE <pattern>        File name pattern. Defaults to '*'.
+#   YANA_TESTNAME <pattern>        Test function pattern. Defaults to '*'.
 function invoke_yana_testing {
-	out_colored_stderr '' "$YANA_TITLE" "Version: $YANA_VERSION"
+	YANA_TESTDIR="${YANA_TESTDIR:-$PWD}"
+	YANA_TESTFILE="${YANA_TESTFILE:-*}"
+	YANA_TESTNAME="${YANA_TESTNAME:-*}"
+	YANA_LOGFILE="${YANA_LOGFILE:-}"
+	YANA_QUIET="${YANA_QUIET:-}"
+	YANA_NOCOLOR="${YANA_NOCOLOR:-}"
+	YANA_SHOW_HELP=false
+	YANA_SHOW_VERSION=false
 	parse_args "$@"
-	[[ -z $_YANA_TESTDIR ]] && _YANA_TESTDIR="$PWD"
-	[[ -z $_YANA_TESTFILE ]] && _YANA_TESTFILE='*'
-	[[ -z $_YANA_TESTNAME ]] && _YANA_TESTNAME='*'
+
+	out_colored_stderr '' "$YANA_TITLE" "Version: $YANA_VERSION"
+	if [[ $YANA_SHOW_VERSION == true ]]; then
+		builtin echo "$YANA_VERSION"
+		builtin return 0
+	fi
+	if [[ $YANA_SHOW_HELP == true ]]; then
+		out_help
+		builtin return 0
+	fi
 
 	builtin local YANA_total_tests
 	YANA_total_tests=$(
-		get_yana_test_file "$_YANA_TESTDIR" "$_YANA_TESTFILE" |
+		get_yana_test_file "$YANA_TESTDIR" "$YANA_TESTFILE" |
 			while IFS= builtin read -r test_file; do
 				invoke_yana_test_file "$test_file"
 			done
@@ -274,7 +285,7 @@ function invoke_yana_testing {
 	done
 	builtin echo >&2
 	builtin echo -e "PASSED: $YANA_total_passed\tFAILED: $YANA_total_failed"
-	if [[ $YANA_total_failed -gt 0 ]]; then builtin exit 1; fi
+	if [[ $YANA_total_failed -gt 0 ]]; then builtin return 1; fi
 }
 
 function out_help {
@@ -283,7 +294,7 @@ function out_help {
 	builtin echo "  -testdir <dir>      Base directory to search for test files. Uses YANA_TESTDIR environment variable. Defaults to current directory."
 	builtin echo "  -testfile <pattern> File name pattern to match test files. Uses YANA_TESTFILE environment variable. Defaults to '*'."
 	builtin echo "  -testname <pattern> Test function name pattern to match test functions. Uses YANA_TESTNAME environment variable. Defaults to '*'."
-	builtin echo "  -logfile <file>     Log file path to write test results. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file."
+	builtin echo "  -logfile <file>     Log file path. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file."
 	builtin echo "  -quiet              Suppress output to the console. Uses YANA_QUIET environment variable."
 	builtin echo "  -nocolor            Disable colored output. Uses YANA_NOCOLOR environment variable."
 	builtin echo "  -version            Show version information and exit."
@@ -297,56 +308,48 @@ function parse_args {
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		-testdir)
-			[[ -n $2 ]] || throw 'Missing value for -testdir'
-			_YANA_TESTDIR="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -testdir'
+			YANA_TESTDIR="$1"
 			;;
 		-testfile)
-			[[ -n $2 ]] || throw 'Missing value for -testfile'
-			_YANA_TESTFILE="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -testfile'
+			YANA_TESTFILE="$1"
 			;;
 		-testname)
-			[[ -n $2 ]] || throw 'Missing value for -testname'
-			_YANA_TESTNAME="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -testname'
+			YANA_TESTNAME="$1"
 			;;
 		-logfile)
-			[[ -n $2 ]] || throw 'Missing value for -logfile'
-			_YANA_LOGFILE="$2"
-			builtin shift 2
+			builtin shift
+			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -logfile'
+			YANA_LOGFILE="$1"
 			;;
 		-quiet)
-			_YANA_QUIET=true
-			builtin shift
+			YANA_QUIET=true
 			;;
 		-nocolor)
-			_YANA_NOCOLOR=true
-			builtin shift
+			YANA_NOCOLOR=true
 			;;
 		-version)
-			builtin echo "$YANA_VERSION"
-			builtin exit 0
+			YANA_SHOW_VERSION=true
 			;;
 		-help)
-			out_help
-			builtin exit 0
+			YANA_SHOW_HELP=true
 			;;
 		*)
 			out_help
 			throw "Unknown argument: $1"
 			;;
 		esac
+		builtin shift
+
 	done
 }
 
 if [[ -z ${BASH_SOURCE[1]:-} ]] || [[ ${BASH_SOURCE[1]:-bashdb} == *bashdb ]]; then
 	# Proceed with the script execution only if it is executed directly or under bashdb.
-	_YANA_TESTDIR="${YANA_TESTDIR:-$PWD}"
-	_YANA_TESTFILE="${YANA_TESTFILE:-*}"
-	_YANA_TESTNAME="${YANA_TESTNAME:-*}"
-	_YANA_LOGFILE="${YANA_LOGFILE:-}"
-	_YANA_QUIET="${YANA_QUIET:-false}"
-	_YANA_NOCOLOR="${YANA_NOCOLOR:-false}"
 	invoke_yana_testing "$@"
 fi

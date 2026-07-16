@@ -16,8 +16,8 @@
 #   - You can also specify a specific test file and/or test function to run.
 # -----------------------------------------------------------------------------
 
-Set-Variable -Name YANA_TITLE -Value 'YANA Testing Framework (PowerShell)' -Option Constant -Scope Global -ErrorAction:Ignore
-Set-Variable -Name YANA_VERSION -Value 'YANAVERSIONPLACEHOLDER' -Option Constant -Scope Global -ErrorAction:Ignore
+Set-Variable -Name YANA_TITLE -Value 'YANA Testing Framework (PowerShell)' -Option Constant -Scope Script -ErrorAction:Ignore
+Set-Variable -Name YANA_VERSION -Value 'YANAVERSIONPLACEHOLDER' -Option Constant -Scope Script -ErrorAction:Ignore
 
 # Demonstrates passing a test case using the pass function.
 function YANAtest:example@pass {
@@ -55,7 +55,7 @@ function Out-Colored {
   if ($LogFile) {
     $logMessage = "[$([datetime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))] ${Message}${MessageDetail}"
     try {
-      Add-Content -Path $LogFile -Value $logMessage -Force -ErrorAction Ignore
+      Add-Content -Path $LogFile -Value $logMessage -Force -ErrorAction Stop
     } catch {
       Write-Warning "Failed to write to log file '$($LogFile)': $($_.Exception.Message)"
     }
@@ -75,7 +75,8 @@ function Out-Colored {
       'White' { 37 }
       default { 0 } # Default to no color
     }
-    "`u{001b}[${colorCode}m${Message}`u{001b}[2m${MessageDetail}`u{001b}[0m"
+    $ansiEscape = [char]27
+    "${ansiEscape}[${colorCode}m${Message}${ansiEscape}[2m${MessageDetail}${ansiEscape}[0m"
   }
 }
 function Out-ColoredStdout {
@@ -232,7 +233,7 @@ function Invoke-YanaTestFile {
     try {
       . $TestFile
     } catch {
-      Out-ColoredStderr -Color red -Message "Error: Failed to import test file" -MessageDetail "$TestFile`n$($_.Exception.Message)"
+      Out-ColoredStderr -Color red -Message 'Error: Failed to import test file' -MessageDetail "$TestFile`n$($_.Exception.Message)"
       return $Local:YANA_testResult
     }
     Get-YanaTestFunction -TestName $TestName | ForEach-Object {
@@ -260,7 +261,7 @@ Options:
   -testdir <dir>      Base directory to search for test files. Uses YANA_TESTDIR environment variable. Defaults to current directory.
   -testfile <pattern> File name pattern to match test files. Uses YANA_TESTFILE environment variable. Defaults to '*'.
   -testname <pattern> Test function name pattern to match test functions. Uses YANA_TESTNAME environment variable. Defaults to '*'.
-  -logfile <file>     Log file path to write test results. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file.
+  -logfile <file>     Log file path. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file.
   -quiet              Suppress output to the console. Uses YANA_QUIET environment variable.
   -nocolor            Disable colored output. Uses YANA_NOCOLOR environment variable.
   -version            Show version information and exit.
@@ -298,10 +299,10 @@ function Invoke-YanaTesting {
     [string]$LogFile = $Env:YANA_LOGFILE,
     # If specified, suppresses output messages.
     # Uses YANA_QUIET environment variable if set.
-    [switch]$Quiet = [bool]$Env:YANA_QUIET,
+    [switch]$Quiet = "$Env:YANA_QUIET" -notin ('0', 'false', ''),
     # If specified, disables colored output.
     # Uses YANA_NOCOLOR environment variable if set.
-    [switch]$NoColor = [bool]$Env:YANA_NOCOLOR,
+    [switch]$NoColor = "$Env:YANA_NOCOLOR" -notin ('0', 'false', ''),
     # If specified, displays the version of the testing framework and exits.
     [switch]$Version,
     # If specified, displays help information and exits.
@@ -309,11 +310,11 @@ function Invoke-YanaTesting {
   )
 
   # Disable progress bar output for cleaner test output
-  $Global:ProgressPreference = 'SilentlyContinue'
+  $Script:ProgressPreference = 'SilentlyContinue'
 
-  Out-ColoredStderr -Message $YANA_TITLE -MessageDetail "Version: $YANA_VERSION"
+  Out-ColoredStderr -Message $Script:YANA_TITLE -MessageDetail "Version: $Script:YANA_VERSION"
 
-  if ($Version) { $YANA_VERSION; exit 0 }
+  if ($Version) { $Script:YANA_VERSION; exit 0 }
   if ($Help) { Out-Help; exit 0 }
 
   if ([string]::IsNullOrEmpty($TestDir)) { $TestDir = $PWD }
@@ -332,4 +333,14 @@ function Invoke-YanaTesting {
 }
 
 # Prevent running when dot-sourced
-if ($MyInvocation.InvocationName -ne '.') { Invoke-YanaTesting @args }
+if ($MyInvocation.InvocationName -ne '.') {
+  try {
+    Invoke-YanaTesting @args
+  } catch {
+    $_fc = [Console]::ForegroundColor
+    [Console]::ForegroundColor = 'Red'
+    [Console]::Error.WriteLine("Error: $($_.Exception.Message)")
+    [Console]::ForegroundColor = $_fc
+    exit 1
+  }
+}
