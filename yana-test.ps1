@@ -75,7 +75,8 @@ function Out-Colored {
       'White' { 37 }
       default { 0 } # Default to no color
     }
-    "`u{001b}[${colorCode}m${Message}`u{001b}[2m${MessageDetail}`u{001b}[0m"
+    $ansiEscape = [char]27
+    "${ansiEscape}[${colorCode}m${Message}${ansiEscape}[2m${MessageDetail}${ansiEscape}[0m"
   }
 }
 function Out-ColoredStdout {
