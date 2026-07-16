@@ -116,7 +116,7 @@ General Options:
   -version                   Displays the version of YANA.
   -help                      Displays this help message.
   -help <mode>               Displays help for the specified mode.
-  -logfile <path>            Log file path to write test results. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file.
+  -logfile <path>            Log file path. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file.
   -quiet                     Suppresses output messages. Uses YANA_QUIET environment variable if set.
   -nocolor                   Disables colored output. Uses YANA_NOCOLOR environment variable if set.
 '@

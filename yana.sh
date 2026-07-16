@@ -129,7 +129,7 @@ function out_help() {
 	builtin echo "  -version                   Displays the version of YANA."
 	builtin echo "  -help                      Displays this help message."
 	builtin echo "  -help <mode>               Displays help for the specified mode."
-	builtin echo "  -logfile <file>            Log file path to write test results. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file."
+	builtin echo "  -logfile <file>            Log file path. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file."
 	builtin echo "  -quiet                     Suppress output to the console. Uses YANA_QUIET environment variable."
 	builtin echo "  -nocolor                   Disable colored output. Uses YANA_NOCOLOR environment variable."
 }

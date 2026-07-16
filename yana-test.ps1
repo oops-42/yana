@@ -261,7 +261,7 @@ Options:
   -testdir <dir>      Base directory to search for test files. Uses YANA_TESTDIR environment variable. Defaults to current directory.
   -testfile <pattern> File name pattern to match test files. Uses YANA_TESTFILE environment variable. Defaults to '*'.
   -testname <pattern> Test function name pattern to match test functions. Uses YANA_TESTNAME environment variable. Defaults to '*'.
-  -logfile <file>     Log file path to write test results. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file.
+  -logfile <file>     Log file path. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file.
   -quiet              Suppress output to the console. Uses YANA_QUIET environment variable.
   -nocolor            Disable colored output. Uses YANA_NOCOLOR environment variable.
   -version            Show version information and exit.
