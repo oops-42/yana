@@ -55,7 +55,7 @@ function Out-Colored {
   if ($LogFile) {
     $logMessage = "[$([datetime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))] ${Message}${MessageDetail}"
     try {
-      Add-Content -Path $LogFile -Value $logMessage -Force -ErrorAction Ignore
+      Add-Content -Path $LogFile -Value $logMessage -Force -ErrorAction Stop
     } catch {
       Write-Warning "Failed to write to log file '$($LogFile)': $($_.Exception.Message)"
     }
@@ -233,7 +233,7 @@ function Invoke-YanaTestFile {
     try {
       . $TestFile
     } catch {
-      Out-ColoredStderr -Color red -Message "Error: Failed to import test file" -MessageDetail "$TestFile`n$($_.Exception.Message)"
+      Out-ColoredStderr -Color red -Message 'Error: Failed to import test file' -MessageDetail "$TestFile`n$($_.Exception.Message)"
       return $Local:YANA_testResult
     }
     Get-YanaTestFunction -TestName $TestName | ForEach-Object {
@@ -333,4 +333,12 @@ function Invoke-YanaTesting {
 }
 
 # Prevent running when dot-sourced
-if ($MyInvocation.InvocationName -ne '.') { Invoke-YanaTesting @args }
+if ($MyInvocation.InvocationName -ne '.') {
+  try {
+    Invoke-YanaTesting @args
+  } catch {
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor Red
+    exit 1
+  }
+}

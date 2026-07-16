@@ -25,7 +25,7 @@ function Out-Colored {
   if ($LogFile) {
     $logMessage = "[$([datetime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))] ${Message}${MessageDetail}"
     try {
-      Add-Content -Path $LogFile -Value $logMessage -Force -ErrorAction Ignore
+      Add-Content -Path $LogFile -Value $logMessage -Force -ErrorAction Stop
     } catch {
       Write-Warning "Failed to write to log file '$($LogFile)': $($_.Exception.Message)"
     }
@@ -205,7 +205,8 @@ if ($MyInvocation.InvocationName -ne '.') {
   try {
     Invoke-Yana @args
   } catch {
-    Out-ColoredStderr -Color 'Red' -Message "Error: $($_.Exception.Message)" -MessageDetail $_.ScriptStackTrace
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor Red
     exit 1
   }
 }
