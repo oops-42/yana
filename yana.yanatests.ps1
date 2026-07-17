@@ -62,10 +62,19 @@ function YANAtest:Invoke-Yana@help_no_mode {
   } else {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
-  if ($result.output.Length -gt 0 -and $result.output[0].Command -eq 'Out-Help') {
-    pass 'Out-Help is called'
+  if ($result.output.Length -eq 1) {
+    if ($result.output[0].Command -eq 'Out-Help') {
+      pass 'Out-Help is called'
+    } else {
+      fail "Expected Out-Help to be called but got: $($result.output.Command)"
+    }
+    if ([string]::IsNullOrEmpty($result.output[0].Args['Mode'])) {
+      pass 'Out-Help mode is empty'
+    } else {
+      fail "Expected Out-Help mode to be empty but got: $($result.output[0].Args['Mode'])"
+    }
   } else {
-    fail "Expected Out-Help to be called but got: $($result.output.Command)"
+    fail "Expected Out-Help to be called once but got: $($result.output.Length) times"
   }
   if ([string]::IsNullOrEmpty($result.output[0].Args['Mode'])) {
     pass 'Out-Help mode is empty'
@@ -99,15 +108,19 @@ function YANAtest:Invoke-Yana@help_with_mode {
   } else {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
-  if ($result.output.Length -gt 0 -and $result.output[0].Command -eq 'Out-Help') {
-    pass 'Out-Help is called'
+  if ($result.output.Length -eq 1) {
+    if ($result.output[0].Command -eq 'Out-Help') {
+      pass 'Out-Help is called'
+    } else {
+      fail "Expected Out-Help to be called but got: $($result.output.Command)"
+    }
+    if ($result.output[0].Args['Mode'] -eq 'apply') {
+      pass 'Out-Help mode is apply'
+    } else {
+      fail "Expected Out-Help mode to be apply but got: $($result.output[0].Args['Mode'])"
+    }
   } else {
-    fail "Expected Out-Help to be called but got: $($result.output.Command)"
-  }
-  if ($result.output[0].Args['Mode'] -eq 'apply') {
-    pass 'Out-Help mode is apply'
-  } else {
-    fail "Expected Out-Help mode to be apply but got: $($result.output[0].Args['Mode'])"
+    fail "Expected Out-Help to be called once but got: $($result.output.Length) times"
   }
 }
 
@@ -154,15 +167,19 @@ function YANAtest:Invoke-Yana@mode_apply {
   } else {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
-  if ($result.output.Length -eq 1 -and $result.output[0].Command -eq 'Invoke-YanaApply') {
-    pass 'Only Invoke-YanaApply is called'
+  if ($result.output.Length -eq 1) {
+    if ($result.output[0].Command -eq 'Invoke-YanaApply') {
+      pass 'Invoke-YanaApply is called'
+      if ($result.output[0].Args['Source'] -eq 'some_source') {
+        pass 'Invoke-YanaApply source is correct'
+      } else {
+        fail "Expected Invoke-YanaApply source to be 'some_source' but got: $($result.output[0].Args['Source'])"
+      }
+    } else {
+      fail "Expected Invoke-YanaApply to be called but got: $($result.output.Command)"
+    }
   } else {
-    fail "Expected Invoke-YanaApply to be called but got: $($result.output.Command)"
-  }
-  if ($result.output[0].Args['Source'] -eq 'some_source') {
-    pass 'Invoke-YanaApply source is correct'
-  } else {
-    fail "Expected Invoke-YanaApply source to be 'some_source' but got: $($result.output[0].Args['Source'])"
+    fail "Expected Invoke-YanaApply to be called once but got: $($result.output.Length) times"
   }
 }
 
@@ -199,15 +216,19 @@ function YANAtest:Invoke-Yana@mode_verify {
   } else {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
-  if ($result.output.Length -eq 1 -and $result.output[0].Command -eq 'Invoke-YanaVerify') {
-    pass 'Only Invoke-YanaVerify is called'
+  if ($result.output.Length -eq 1) {
+    if ($result.output[0].Command -eq 'Invoke-YanaVerify') {
+      pass 'Invoke-YanaVerify is called'
+      if ($result.output[0].Args['Source'] -eq 'some_source') {
+        pass 'Invoke-YanaVerify source is correct'
+      } else {
+        fail "Expected Invoke-YanaVerify source to be 'some_source' but got: $($result.output[0].Args['Source'])"
+      }
+    } else {
+      fail "Expected Invoke-YanaVerify to be called but got: $($result.output.Command)"
+    }
   } else {
-    fail "Expected Invoke-YanaVerify to be called but got: $($result.output.Command)"
-  }
-  if ($result.output[0].Args['Source'] -eq 'some_source') {
-    pass 'Invoke-YanaVerify source is correct'
-  } else {
-    fail "Expected Invoke-YanaVerify source to be 'some_source' but got: $($result.output[0].Args['Source'])"
+    fail "Expected Invoke-YanaVerify to be called once but got: $($result.output.Length) times"
   }
 }
 
@@ -244,15 +265,19 @@ function YANAtest:Invoke-Yana@mode_fetch {
   } else {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
-  if ($result.output.Length -eq 1 -and $result.output[0].Command -eq 'Invoke-YanaFetch') {
-    pass 'Only Invoke-YanaFetch is called'
+  if ($result.output.Length -eq 1) {
+    if ($result.output[0].Command -eq 'Invoke-YanaFetch') {
+      pass 'Invoke-YanaFetch is called'
+      if ($result.output[0].Args['Source'] -eq 'some_source') {
+        pass 'Invoke-YanaFetch source is correct'
+      } else {
+        fail "Expected Invoke-YanaFetch source to be 'some_source' but got: $($result.output[0].Args['Source'])"
+      }
+    } else {
+      fail "Expected Invoke-YanaFetch to be called but got: $($result.output.Command)"
+    }
   } else {
-    fail "Expected Invoke-YanaFetch to be called but got: $($result.output.Command)"
-  }
-  if ($result.output[0].Args['Source'] -eq 'some_source') {
-    pass 'Invoke-YanaFetch source is correct'
-  } else {
-    fail "Expected Invoke-YanaFetch source to be 'some_source' but got: $($result.output[0].Args['Source'])"
+    fail "Expected Invoke-YanaFetch to be called once but got: $($result.output.Length) times"
   }
 }
 
@@ -290,9 +315,19 @@ function YANAtest:Invoke-Yana@invalid_mode {
     fail "Expected exit code non-zero but got: $($result.exit_code)"
   }
   if ($result.output.Length -eq 0) {
-    pass 'Only mode functions are called'
+    pass 'No mode functions are called'
   } else {
     fail "Expected no mode functions to be called but got: $($result.output.Command)"
+  }
+  if ($null -ne $result.exception) {
+    pass 'Exception is thrown'
+    if ($result.exception.Message -eq "Unknown mode: unknown. Use -help to see available modes.") {
+      pass 'Error message is correct'
+    } else {
+      fail "Expected error message to contain 'Unknown mode: unknown. Use -help to see available modes.' but got: $($result.exception.Message)"
+    }
+  } else {
+    fail 'Expected exception to be thrown but got none'
   }
 }
 
