@@ -201,9 +201,11 @@ function Invoke-Yana {
       Invoke-YanaFetch -Source $Source
       break
     }
+    '' {
+      throw 'No mode specified. Use -help to see available modes.'
+    }
     default {
-      Out-Help
-      throw "Invalid mode specified: '$Mode'. Use -help for usage information."
+      throw "Unknown mode: $Mode. Use -help to see available modes."
     }
   }
 }
