@@ -161,8 +161,10 @@ function parse_args() {
 			YANA_SHOW_HELP=true
 			;;
 		*)
-			out_help
-			throw "Unknown argument: $1"
+			if [[ "$1" == -* ]]; then
+				throw "Unknown option: $1. Use -help to see available options."
+			fi
+			throw "Unknown mode: $1. Use -help to see available modes."
 			;;
 		esac
 		builtin shift
@@ -190,8 +192,7 @@ function invoke_yana() {
 		builtin return 0
 	fi
 	if [[ -z $YANA_MODE ]]; then
-		out_help
-		throw 'No mode specified. Please specify a mode: apply, verify, or fetch.'
+		throw 'No mode specified. Use -help to see available modes.'
 	fi
 	invoke_yana_"$YANA_MODE" "$YANA_SOURCE"
 }
