@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/oops-42/yana/main/yanaspec.schema.json",
+  "title": "YANASpec",
+  "description": "YANA (Yet Another Node Automator) compiled specification document used by YANA Engine to apply configuration and automations on a target node",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Name",
+      "type": "string"
+    },
+    "version": {
+      "description": "Version",
+      "type": "string"
+    },
+    "description": {
+      "description": "Description",
+      "type": "string"
+    },
+    "author": {
+      "description": "Author",
+      "type": "string"
+    },
+    "license": {
+      "description": "License",
+      "type": "string"
+    },
+    "params": {
+      "$ref": "#/definitions/params"
+    },
+    "routines": {
+      "description": "Named sets of actions to be executed together as a single unit. The special dot-routine '.' is executed by default.",
+      "type": "object",
+      "properties": {
+        ".": {
+          "$ref": "#/definitions/routine",
+          "description": "Default routine executed when no routine is specified."
+        }
+      },
+      "additionalProperties": {
+        "pattern": "^[a-zA-Z0-9_]+$",
+        "$ref": "#/definitions/routine",
+        "description": "Named routine."
+      },
+      "propertyNames": {
+        "description": "Routine name must be a non-empty string containing only alphanumeric characters and underscores.",
+        "pattern": "^(\\.|[a-zA-Z0-9_]+)$"
+      }
+    },
+    "additionalProperties": false
+  },
+  "definitions": {
+    "params": {
+      "description": "Named parameters that can be used in routines and actions. Parameters can be referenced using the syntax ${params:<param_name>}.",
+      "type": "object",
+      "propertyNames": {
+        "description": "Parameter name must be a non-empty string containing only alphanumeric characters and underscores.",
+        "pattern": "^[a-zA-Z0-9_]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/param"
+      }
+    },
+    "param": {
+      "description": "A named parameter that can be used in routines and actions.",
+      "type": [
+        "string",
+        "number",
+        "boolean"
+      ],
+      "additionalProperties": false
+    },
+    "routine": {
+      "description": "A named set of actions executed together as a single unit.",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Human-readable description of what this routine does.",
+          "type": "string"
+        },
+        "if": {
+          "description": "Guard condition that must be true for this routine to execute. Can be a YANA helper function call or a boolean expression.",
+          "type": "string"
+        },
+        "actions": {
+          "description": "Ordered list of actions in this routine.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/action"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "action": {
+      "description": "A single action within a routine.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Human-readable name or label for this step.",
+          "type": "string"
+        },
+        "action": {
+          "description": "The YANA action function to invoke.",
+          "type": "string"
+        },
+        "routine": {
+          "description": "The YANA routine to invoke.",
+          "type": "string"
+        },
+        "if": {
+          "description": "Guard condition that must be true for this step to execute. Can be a YANA helper function call or a boolean expression.",
+          "type": "string"
+        },
+        "args": {
+          "description": "Arguments to pass to the action function.",
+          "$ref": "#/definitions/params"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "action"
+          ]
+        },
+        {
+          "required": [
+            "routine"
+          ]
+        }
+      ],
+      "additionalProperties": true
+    }
+  }
+}
