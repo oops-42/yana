@@ -1,0 +1,107 @@
+{
+  "name": "example",
+  "version": "1.0.0",
+  "description": "An example yanaspec with all features",
+  "author": "YANA Dev Team",
+  "license": "MIT",
+  "params": {
+    "p1": "value1",
+    "p2": 2,
+    "p3": 3.0,
+    "p4": true,
+    "p5": [1, 2, 3],
+    "p6": {
+      "subparam1": "subvalue1",
+      "subparam2": 42,
+      "subparam3": [
+        "a",
+        {
+          "nested": "object"
+        }
+      ]
+    },
+    "p7.1": "value7.1",
+    "p_7-2.qqq": 7.2e12
+  },
+  "routines": {
+    ".": [
+        {
+          "action": "print",
+          "args": {
+            "message": "This is the default routine. ${param:p6.subparam3[1].nested} ${param:p6.subparam1}"
+          }
+        },
+        {
+          "action": "log",
+          "args": {
+            "message": "Parameter p1 is: ${param:p1}",
+            "level": "info"
+          }
+        }
+      ],
+    "routine1": [
+        {
+          "action": "print",
+          "args": {
+            "message": "This is a simple routine."
+          }
+        },
+        {
+          "action": "log",
+          "args": {
+            "message": "Parameter p2 is: ${param:p2}",
+            "level": "info"
+          }
+        }
+      ]
+  },
+  "events": {
+    "on_start": {
+      "actions": [
+        {
+          "action": "test_free_disk_space",
+          "args": {
+            "min_free_space_gb": 1
+          }
+        },
+        {
+          "action": "print",
+          "args": {
+            "message": "Blueprint execution started."
+          }
+        }
+      ]
+    },
+    "on_finish": {
+      "actions": [
+        {
+          "action": "print",
+          "args": {
+            "message": "Blueprint execution finished."
+          }
+        }
+      ]
+    },
+    "on_error": {
+      "actions": [
+        {
+          "action": "print",
+          "args": {
+            "message": "An error occurred during blueprint execution."
+          }
+        }
+      ]
+    },
+    "on_success": {
+      "description": "Event triggered when the blueprint execution completes successfully.",
+      "actions": [
+        {
+          "action": "print",
+          "args": {
+            "message": "Blueprint execution completed successfully."
+          }
+        }
+      ]
+    }
+  }
+}
