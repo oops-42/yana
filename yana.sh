@@ -95,21 +95,23 @@ function out_help() {
 	builtin local mode="${1:-}"
 	case "$mode" in
 	apply)
-		builtin echo "Usage: yana.sh apply <mode options>"
+		builtin echo "Usage: yana.sh apply -source <path|url> [-routine <name>]"
 		builtin echo "  Applies the specified YANA Module."
 
 		builtin echo "Options:"
 		builtin echo "  -source <path|url>         Specifies the source of YANA Module to apply."
+		builtin echo "  -routine <name>            Specifies the routine to execute within the YANA Module."
 		;;
 	verify)
-		builtin echo "Usage: yana.sh verify <mode options>"
+		builtin echo "Usage: yana.sh verify -source <path|url> [-routine <name>]"
 		builtin echo "  Compares the state of the system with the state specified by the YANA Module without making any changes."
 
 		builtin echo "Options:"
 		builtin echo "  -source <path|url>         Specifies the source of YANA Module to verify."
+		builtin echo "  -routine <name>            Specifies the routine to execute within the YANA Module."
 		;;
 	fetch)
-		builtin echo "Usage: yana.sh fetch <mode options>"
+		builtin echo "Usage: yana.sh fetch -source <path|url>"
 		builtin echo "  Fetches the specified YANA Module."
 
 		builtin echo "Options:"
@@ -138,26 +140,29 @@ function out_help() {
 function parse_args() {
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
-		apply | verify | fetch | -version)
+		apply | verify | fetch)
 			YANA_MODE="$1"
 			;;
-		-source)
+		-version | --version)
+			YANA_MODE=version
+			;;
+		-source | --source)
 			builtin shift
 			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -source'
 			YANA_SOURCE="$1"
 			;;
-		-logfile)
+		-logfile | --logfile)
 			builtin shift
 			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -logfile'
 			YANA_LOGFILE="$1"
 			;;
-		-quiet)
+		-quiet | --quiet)
 			YANA_QUIET=true
 			;;
-		-nocolor)
+		-nocolor | --nocolor)
 			YANA_NOCOLOR=true
 			;;
-		-help)
+		-help | --help)
 			YANA_SHOW_HELP=true
 			;;
 		*)
@@ -168,6 +173,15 @@ function parse_args() {
 			;;
 		esac
 		builtin shift
+	done
+}
+
+function check_prerequisites {
+	# Check for required commands or tools here
+	for cmd in wget jq base64 awk grep tar gunzip; do
+		if ! command -v "$cmd" >/dev/null 2>&1; then
+			throw "Required command \"$cmd\" is not available. Please install it and try again."
+		fi
 	done
 }
 
@@ -183,7 +197,7 @@ function invoke_yana() {
 
 	out_colored_stderr '' "$YANA_TITLE" "Version: $YANA_VERSION"
 
-	if [[ $YANA_MODE == '-version' ]]; then
+	if [[ $YANA_MODE == 'version' ]]; then
 		builtin echo "$YANA_VERSION"
 		builtin return 0
 	fi
@@ -191,6 +205,7 @@ function invoke_yana() {
 		out_help "$YANA_MODE"
 		builtin return 0
 	fi
+	check_prerequisites
 	if [[ -z $YANA_MODE ]]; then
 		throw 'No mode specified. Use -help to see available modes.'
 	fi
