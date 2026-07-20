@@ -238,8 +238,9 @@ function YANAtest:invoke_yana_test_file@with_valid_content {
 	# - create a temporary test file
 	# - use mock functions
 	# - override the behavior of tested function using variable overrides
-	local tempFile
-	tempFile=$(mktemp --suffix='.sh')
+	local tempDir tempFile
+	tempDir=$(mktemp --directory)
+	tempFile="$tempDir/testfile.sh"
 	cat >"$tempFile" <<'EOF'
 function YANAtest:TestFunction1@pass {
 	pass 'Test passed'
@@ -259,7 +260,7 @@ EOF
 		# Override variables to suppress output and logging
 		YANA_TESTNAME='*' invoke_yana_test_file "$tempFile" 2>/dev/null
 	)
-	rm -f "$tempFile"
+	rm -rf "$tempDir"
 
 	parsed_result=$(parse_YanaTestResult "$test_result") || {
 		fail "Failed to parse YanaTestResult"

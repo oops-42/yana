@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oops-42/yana/main/yanaspec.schema.json",
+  "name": "simple",
+  "version": "1.0.0",
+  "description": "A simple yanaspec example",
+  "author": "YANA Dev Team",
+  "license": "MIT",
+  "params": {
+    "p1": "value1",
+    "p2": 2,
+    "p3": 3.0,
+    "p4": true
+  },
+  "routines": {
+    ".": [
+      {
+        "action": "print",
+        "args": {
+          "message": "This is the default routine."
+        }
+      },
+      {
+        "action": "log",
+        "args": {
+          "message": "Parameter p1 is: ${params:p1}",
+          "level": "info"
+        }
+      }
+    ],
+    "routine1": [
+      {
+        "action": "print",
+        "args": {
+          "message": "This is a simple routine."
+        }
+      },
+      {
+        "action": "log",
+        "args": {
+          "message": "Parameter p2 is: ${params:p2}",
+          "level": "info"
+        }
+      }
+    ]
+  }
+}

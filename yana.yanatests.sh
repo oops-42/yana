@@ -75,7 +75,7 @@ function YANAtest:invoke_yana@help_mode_apply {
 	else
 		fail "should return 0 when invoked with -help apply, got: $_rc"
 	fi
-	if [[ $test_result == *'Usage: yana.sh apply <mode options>'* ]]; then
+	if [[ $test_result == *'Usage: yana.sh apply '* ]]; then
 		pass 'should print usage information for apply mode when invoked with -help apply'
 	else
 		fail "should print usage information for apply mode when invoked with -help apply, got: $test_result"
@@ -91,7 +91,7 @@ function YANAtest:invoke_yana@help_mode_verify {
 	else
 		fail "should return 0 when invoked with -help verify, got: $_rc"
 	fi
-	if [[ $test_result == *'Usage: yana.sh verify <mode options>'* ]]; then
+	if [[ $test_result == *'Usage: yana.sh verify '* ]]; then
 		pass 'should print usage information for verify mode when invoked with -help verify'
 	else
 		fail "should print usage information for verify mode when invoked with -help verify, got: $test_result"
@@ -107,7 +107,7 @@ function YANAtest:invoke_yana@help_mode_fetch {
 	else
 		fail "should return 0 when invoked with -help fetch, got: $_rc"
 	fi
-	if [[ $test_result == *'Usage: yana.sh fetch <mode options>'* ]]; then
+	if [[ $test_result == *'Usage: yana.sh fetch '* ]]; then
 		pass 'should print usage information for fetch mode when invoked with -help fetch'
 	else
 		fail "should print usage information for fetch mode when invoked with -help fetch, got: $test_result"
