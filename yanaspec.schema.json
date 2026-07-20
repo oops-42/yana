@@ -25,8 +25,25 @@
       "description": "License",
       "type": "string"
     },
+    "supports": {
+      "description": "Supported platforms",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "linux",
+          "windows",
+          "macos"
+        ]
+      }
+    },
     "params": {
-      "$ref": "#/definitions/params"
+      "description": "Named parameters that can be used in routines and actions. Parameters can be referenced using the syntax ${params:<param_name>}.",
+      "type": "object",
+      "propertyNames": {
+        "description": "Parameter name must be a non-empty string containing only alphanumeric characters and underscores.",
+        "pattern": "^[a-zA-Z0-9_]+$"
+      }
     },
     "routines": {
       "description": "Named sets of actions to be executed together as a single unit. The special dot-routine '.' is executed by default.",
@@ -50,50 +67,16 @@
     "additionalProperties": false
   },
   "definitions": {
-    "params": {
-      "description": "Named parameters that can be used in routines and actions. Parameters can be referenced using the syntax ${params:<param_name>}.",
-      "type": "object",
-      "propertyNames": {
-        "description": "Parameter name must be a non-empty string containing only alphanumeric characters and underscores.",
-        "pattern": "^[a-zA-Z0-9_]+$"
-      },
-      "additionalProperties": {
-        "$ref": "#/definitions/param"
-      }
-    },
-    "param": {
-      "description": "A named parameter that can be used in routines and actions.",
-      "type": [
-        "string",
-        "number",
-        "boolean"
-      ],
-      "additionalProperties": false
-    },
     "routine": {
-      "description": "A named set of actions executed together as a single unit.",
-      "type": "object",
-      "properties": {
-        "description": {
-          "description": "Human-readable description of what this routine does.",
-          "type": "string"
-        },
-        "if": {
-          "description": "Guard condition that must be true for this routine to execute. Can be a YANA helper function call or a boolean expression.",
-          "type": "string"
-        },
-        "actions": {
-          "description": "Ordered list of actions in this routine.",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/action"
-          }
-        }
+      "description": "A named set of steps executed together as a single unit.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/routine_step"
       },
       "additionalProperties": false
     },
-    "action": {
-      "description": "A single action within a routine.",
+    "routine_step": {
+      "description": "A step within a routine.",
       "type": "object",
       "properties": {
         "name": {
@@ -102,15 +85,13 @@
         },
         "action": {
           "description": "The YANA action function to invoke.",
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_]+$"
         },
         "routine": {
           "description": "The YANA routine to invoke.",
-          "type": "string"
-        },
-        "if": {
-          "description": "Guard condition that must be true for this step to execute. Can be a YANA helper function call or a boolean expression.",
-          "type": "string"
+          "type": "string",
+          "pattern": "^([a-zA-Z0-9_]+:)?[a-zA-Z0-9_]+$"
         },
         "args": {
           "description": "Arguments to pass to the action function.",
