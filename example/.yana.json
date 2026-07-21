@@ -1,0 +1,35 @@
+{
+  "requires": ["jq", "bash", "mkdir"],
+  "params": {
+    "app_dir": "/tmp/yana_demo",
+    "config_file": "/tmp/yana_demo/config.env",
+    "service_port": "8080"
+  },
+  "steps": [
+    {
+      "name": "Ensure application configuration exists",
+      "action": "file.write",
+      "args": {
+        "path": "${param:config_file}",
+        "content": "PORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nUSER=${env:USER}",
+        "owner": "${var:user}"
+      }
+    },
+    {
+      "name": "Write marker file",
+      "action": "file.write",
+      "args": {
+        "path": "${param:app_dir}/status.txt",
+        "content": "STATUS=ACTIVE",
+        "owner": "${var:user}"
+      }
+    },
+    {
+        "name": "install jq",
+        "action": "apt.install",
+        "args": {
+            "package": "jq"
+        }
+    }
+  ]
+}
