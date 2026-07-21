@@ -1,15 +1,6 @@
 #!/usr/bin/env bash
 # Module: file actions
 
-# Action: file_written <target_path> <content> <owner>
-YANAverify:file.write() {
-	local path="${1:-$path}"
-	local content="${2:-$content}"
-
-	# Return 0 if file exists and matches content
-	[[ -f $path ]] && [[ "$(cat "$path")" == "$content" ]]
-}
-
 YANAapply:file.write() {
 	local path="${1:-$path}"
 	local content="${2:-$content}"
@@ -21,4 +12,11 @@ YANAapply:file.write() {
 	if [[ -n $owner ]]; then
 		chown "$owner" "$path" 2>/dev/null || true
 	fi
+}
+YANAverify:file.write() {
+	local path="${1:-$path}"
+	local content="${2:-$content}"
+
+	# Return 0 if file exists and matches content
+	[[ -f $path ]] && [[ "$(cat "$path")" == "$content" ]]
 }

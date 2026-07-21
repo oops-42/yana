@@ -1,8 +1,7 @@
 {
   "requires": [
-    "jq",
     "bash",
-    "mkdir"
+    "apt-get"
   ],
   "params": {
     "app_dir": "/tmp/yana_demo",
