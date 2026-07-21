@@ -45,11 +45,11 @@ while [[ $# -gt 0 ]]; do
 		usage
 		;;
 	esac
-	QUIET="${QUIET:-false}"
-	VERIFY_ONLY="${VERIFY_ONLY:-false}"
-	MODULE_DIR="${MODULE_DIR:-.}"
-	MANIFEST="${MANIFEST:-.yana.json}"
 done
+QUIET="${QUIET:-false}"
+VERIFY_ONLY="${VERIFY_ONLY:-false}"
+MODULE_DIR="${MODULE_DIR:-.}"
+MANIFEST="${MANIFEST:-.yana.json}"
 
 log() {
 	if [[ $QUIET == false ]]; then

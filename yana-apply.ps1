@@ -74,14 +74,14 @@ function Resolve-YanaVariables {
 
       switch ($prefix) {
         'param' {
-          if ($Params.$key -ne $null) { return $Params.$key }
+          if ($null -ne $Params.$key) { return $Params.$key }
           return ''
         }
         'env' {
           return [Environment]::GetEnvironmentVariable($key)
         }
         'output' {
-          if ($Outputs.$key -ne $null) { return $Outputs.$key }
+          if ($null -ne $Outputs.$key) { return $Outputs.$key }
           return ''
         }
         'var' {
@@ -186,7 +186,7 @@ foreach ($step in $spec.steps) {
   # Pass 3: Post-execution Verification
   if ($hasVerify) {
     $postVerify = & $verifyFuncName @resolvedArgs
-    if ($postVerify -ne $true -and $LASTEXITCODE -ne 0) {
+    if ($postVerify -ne $true) {
       Write-Error "Post-verification failed for step '$stepName'. State change did not stick."
       exit 1
     }
