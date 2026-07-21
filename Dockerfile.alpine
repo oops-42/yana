@@ -1,0 +1,12 @@
+FROM alpine:latest
+
+RUN apk add --no-cache bash jq
+
+WORKDIR /yana
+COPY *.sh .
+COPY *.json .
+# COPY examples ./examples
+
+RUN ./yana-test.sh
+
+ENTRYPOINT ["bash", "./yana.sh"]
