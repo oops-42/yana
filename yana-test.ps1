@@ -318,7 +318,7 @@ function Invoke-YanaTesting {
   if ($Help) { Out-Help; exit 0 }
 
   if ([string]::IsNullOrEmpty($TestDir)) { $TestDir = $PWD }
-  if ([string]::IsNullOrEmpty($TestFile)) { $TestFile = '*' }
+  if ([string]::IsNullOrEmpty($TestFile)) { $TestFile = '*.yanatests.ps1' }
   if ([string]::IsNullOrEmpty($TestName)) { $TestName = '*' }
 
   $Local:YANA_testingResult = [YanaTestResult]::new()

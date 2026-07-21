@@ -249,7 +249,7 @@ function invoke_yana_test_file {
 #   YANA_TESTNAME <pattern>        Test function pattern. Defaults to '*'.
 function invoke_yana_testing {
 	YANA_TESTDIR="${YANA_TESTDIR:-$PWD}"
-	YANA_TESTFILE="${YANA_TESTFILE:-*}"
+	YANA_TESTFILE="${YANA_TESTFILE:-*.yanatests.sh}"
 	YANA_TESTNAME="${YANA_TESTNAME:-*}"
 	YANA_LOGFILE="${YANA_LOGFILE:-}"
 	YANA_QUIET="${YANA_QUIET:-}"
