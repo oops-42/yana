@@ -4,14 +4,14 @@ parent: Concepts
 nav_order: 3
 ---
 
-# Functions: Helpers, Actions, Verifiers
+# Functions: Actions, Verifiers, Vars
 
-YANA functions are pure PowerShell/Bash functions organized into script files. There are three types of functions: **Helpers**, **Actions** and **Verifiers**.
+YANA functions are pure PowerShell/Bash functions organized into script files. There are three types of functions: **Vars**, **Actions** and **Verifiers**.
 
-## Helpers
+## Vars
 
-**YANA Helpers** are small utility functions used to add dynamism to blueprints.
-They compute values, transform data, or perform lookups - they do not modify system state.
+**YANA Vars** are very small functions used to retrieve values and add dynamism to blueprints.
+They retrieve values, transform data or perform lookups - they do not modify system state.
 
 ## Actions
 
@@ -32,7 +32,7 @@ YANA does not impose complex DSL. Functions are plain PowerShell/Bash, yet shall
 All YANA functions must follow the pattern `<prefix><function_name>[@<scenario>]`, where:
 
 * Action and Verifier functions must begin with `YANAaction:` prefix, but verifiers must also end with `@verify` suffix.
-* Helper functions must begin with `YANAhelper:` prefix.
+* Var functions must begin with `YANAvar:` prefix.
 * Test functions must begin with `YANAtest:` prefix.
 
 ## Location
