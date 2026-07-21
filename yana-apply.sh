@@ -4,16 +4,17 @@
 
 set -euo pipefail
 
-MODULE_DIR="."
-MODULE_DIR="example"
-QUIET=false
-VERIFY_ONLY=false
+# MODULE_DIR="."
+# MODULE_DIR="example"
+# QUIET=false
+# VERIFY_ONLY=false
 
 # --- CLI Options Parser ---
 usage() {
     echo "Usage: $0 [options]"
     echo "Options:"
 		echo "  -d, --dir <path>      Path to module directory (default: .)"
+		echo "  -m, --manifest <file> yanaspec file name within module directory (default: .yana.json)"
     echo "  -q, --quiet           Silent execution unless an error occurs"
     echo "  --verify-only         Compliance audit mode: execute read-only verification checks"
     echo "  -h, --help            Show help"
@@ -23,15 +24,20 @@ usage() {
 while [[ $# -gt 0 ]]; do
     case "$1" in
 				-d|--dir) MODULE_DIR="$2"; shift 2 ;;
+        -m|--manifest) MANIFEST="$2"; shift 2 ;;
         -q|--quiet) QUIET=true; shift ;;
         --verify-only) VERIFY_ONLY=true; shift ;;
         -h|--help) usage ;;
         *) echo "Unknown option: $1"; usage ;;
     esac
+		QUIET="${QUIET:-false}"
+		VERIFY_ONLY="${VERIFY_ONLY:-false}"
+		MODULE_DIR="${MODULE_DIR:-.}"
+		MANIFEST="${MANIFEST:-.yana.json}"
 done
 
 log() {
-    if [[ "$QUIET" == false ]]; then
+    if [[ $QUIET == false ]]; then
         echo -e "$@"
     fi
 }
@@ -41,9 +47,9 @@ log_err() {
 }
 
 # --- 1. Load & Validate Manifest File ---
-MANIFEST="$MODULE_DIR/.yana.json"
-if [[ ! -f "$MANIFEST" ]]; then
-    log_err "[ERROR] Manifest file '$MANIFEST' not found."
+MANIFEST_FILE="$MODULE_DIR/$MANIFEST"
+if [[ ! -f "$MANIFEST_FILE" ]]; then
+    log_err "[ERROR] Manifest file '$MANIFEST_FILE' not found."
     exit 1
 fi
 
@@ -53,11 +59,11 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # --- 2. Pre-flight Check Phase ---
-requires_count=$(jq -r '(.requires // []) | length' "$MANIFEST")
+requires_count=$(jq -r '(.requires // []) | length' "$MANIFEST_FILE")
 missing_deps=()
 
 for (( i=0; i<requires_count; i++ )); do
-    req=$(jq -r ".requires[$i]" "$MANIFEST")
+    req=$(jq -r ".requires[$i]" "$MANIFEST_FILE")
     if ! command -v "$req" &>/dev/null; then
         missing_deps+=("$req")
     fi
@@ -87,7 +93,7 @@ resolve_vars() {
     while [[ "$val" =~ \$\{param:([a-zA-Z0-9_]+)\} ]]; do
         local p_name="${BASH_REMATCH[1]}"
         local p_val
-        p_val=$(jq -r ".params[\"$p_name\"] // \"\"" "$MANIFEST")
+        p_val=$(jq -r ".params[\"$p_name\"] // \"\"" "$MANIFEST_FILE")
         val="${val//\$\{param:$p_name\}/$p_val}"
     done
 
@@ -118,15 +124,15 @@ resolve_vars() {
 }
 
 # --- 4. Core Execution Loop ---
-steps_count=$(jq -r '(.steps // []) | length' "$MANIFEST")
+steps_count=$(jq -r '(.steps // []) | length' "$MANIFEST_FILE")
 
-log "=== YANA Engine Execution Target: $MANIFEST ==="
+log "=== YANA Engine Execution Target: $MANIFEST_FILE ==="
 if [[ "$VERIFY_ONLY" == true ]]; then
     log "Mode: Compliance Audit (--verify-only)"
 fi
 
 for (( i=0; i<steps_count; i++ )); do
-    step_json=$(jq -c ".steps[$i]" "$MANIFEST")
+    step_json=$(jq -c ".steps[$i]" "$MANIFEST_FILE")
     step_name=$(echo "$step_json" | jq -r '.name // "step_'$i'"')
     action=$(echo "$step_json" | jq -r '.action')
 

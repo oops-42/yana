@@ -23,6 +23,13 @@
         "content": "STATUS=ACTIVE",
         "owner": "${var:user}"
       }
+    },
+    {
+        "name": "install jq",
+        "action": "apk.install",
+        "args": {
+            "package": "jq"
+        }
     }
   ]
 }
