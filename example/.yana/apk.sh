@@ -1,11 +1,11 @@
-# Module: apt package actions
+# Module: apk package actions
 
-YANAaction:apk.install:verify() {
-    local package="${1:-$package}"
-    apk info "$package" &>/dev/null
+YANAverify:apk.install() {
+  local package="${1:-$package}"
+  apk info "$package" &>/dev/null
 }
 
-YANAaction:apk.install:apply() {
-    local package="${1:-$package}"
-    apk add --no-cache "$package"
+YANAapply:apk.install() {
+  local package="${1:-$package}"
+  apk add --no-cache "$package"
 }

@@ -1,5 +1,9 @@
 {
-  "requires": ["jq", "bash", "mkdir"],
+  "requires": [
+    "jq",
+    "bash",
+    "mkdir"
+  ],
   "params": {
     "app_dir": "/tmp/yana_demo",
     "config_file": "/tmp/yana_demo/config.env",
@@ -25,11 +29,11 @@
       }
     },
     {
-        "name": "install jq",
-        "action": "apk.install",
-        "args": {
-            "package": "jq"
-        }
+      "name": "install nginx",
+      "action": "apk.install",
+      "args": {
+        "package": "nginx"
+      }
     }
   ]
 }

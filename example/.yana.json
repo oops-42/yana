@@ -1,5 +1,9 @@
 {
-  "requires": ["jq", "bash", "mkdir"],
+  "requires": [
+    "jq",
+    "bash",
+    "mkdir"
+  ],
   "params": {
     "app_dir": "/tmp/yana_demo",
     "config_file": "/tmp/yana_demo/config.env",
