@@ -7,4 +7,5 @@ COPY *.json ./
 
 RUN powershell -File ./yana-test.ps1
 
-ENTRYPOINT ["powershell", "-File", "./yana.ps1"]
+# ENTRYPOINT ["powershell", "-File", "./yana.ps1"]
+ENTRYPOINT ["powershell"]

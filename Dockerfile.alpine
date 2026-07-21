@@ -5,8 +5,8 @@ RUN apk add --no-cache bash jq
 WORKDIR /yana
 COPY *.sh .
 COPY *.json .
-# COPY examples ./examples
+COPY example ./example
 
 RUN ./yana-test.sh
 
-ENTRYPOINT ["bash", "./yana.sh"]
+# ENTRYPOINT ["bash", "./yana.sh"]
