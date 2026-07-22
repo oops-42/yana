@@ -4,10 +4,12 @@
 
 set -euo pipefail
 
-# MODULE_DIR="."
-# MODULE_DIR="example"
-# QUIET=false
-# VERIFY_ONLY=false
+QUIET="${QUIET:-false}"
+MODULE_DIR="${MODULE_DIR:-.}"
+MANIFEST="${MANIFEST:-.yana.json}"
+VERIFY_ONLY="${VERIFY_ONLY:-false}"
+
+MODULE_DIR="example"
 
 # --- CLI Options Parser ---
 usage() {
@@ -46,15 +48,9 @@ while [[ $# -gt 0 ]]; do
 		;;
 	esac
 done
-QUIET="${QUIET:-false}"
-VERIFY_ONLY="${VERIFY_ONLY:-false}"
-MODULE_DIR="${MODULE_DIR:-.}"
-MANIFEST="${MANIFEST:-.yana.json}"
 
 log() {
-	if [[ $QUIET == false ]]; then
-		echo -e "$@"
-	fi
+	if [[ $QUIET == false ]]; then echo -e "$@"; fi
 }
 
 log_err() {
@@ -68,29 +64,30 @@ if [[ ! -f $MANIFEST_FILE ]]; then
 	exit 1
 fi
 
-if ! command -v jq &>/dev/null; then
-	log_err "[ERROR] Prerequisite tool 'jq' is missing on host node."
-	exit 1
-fi
-
-# --- 2. Pre-flight Check Phase ---
-requires_count=$(jq -r '(.requires // []) | length' "$MANIFEST_FILE")
-missing_deps=()
-
-for ((i = 0; i < requires_count; i++)); do
-	req=$(jq -r ".requires[$i]" "$MANIFEST_FILE")
-	if ! command -v "$req" &>/dev/null; then
-		missing_deps+=("$req")
+for cmd in jq base64 awk; do
+	if ! command -v "$cmd" &>/dev/null; then
+		log_err "[ERROR] Prerequisite tool '$cmd' is missing on host node."
+		exit 1
 	fi
 done
 
-if [[ ${#missing_deps[@]} -gt 0 ]]; then
-	log_err "[PRE-FLIGHT FAILED] Missing target dependencies: ${missing_deps[*]}"
+YANAspec_json=$(jq -c '.' "$MANIFEST_FILE" 2>/dev/null) || {
+	log_err "[ERROR] Failed to parse manifest file '$MANIFEST_FILE'. Ensure it is valid JSON."
 	exit 1
-fi
+}
 
-MODULES_DIR="$MODULE_DIR/.yana"
+# --- 2. Pre-flight Check Phase ---
+requires_count=$(jq -r '(.requires // []) | length' <<<"$YANAspec_json")
+for ((i = 0; i < requires_count; i++)); do
+	req=$(jq -r ".requires[$i]" <<<"$YANAspec_json")
+	if ! command -v "$req" &>/dev/null; then
+		log_err "[PRE-FLIGHT FAILED] Missing target dependency: $req"
+		exit 1
+	fi
+done
+
 # --- 3. Load Resource Modules ---
+MODULES_DIR="$MODULE_DIR/.yana"
 if [[ -d $MODULES_DIR ]]; then
 	for module_script in "$MODULES_DIR"/*.sh; do
 		if [[ -f $module_script ]]; then
@@ -102,45 +99,49 @@ fi
 
 # --- Helper: Dynamic Variable Resolver ---
 resolve_vars() {
-	local val="$1"
+	local val="${1:-}"
 
 	# Resolve ${param:param_name}
-	while [[ $val =~ \$\{param:([a-zA-Z0-9_]+)\} ]]; do
-		local p_name="${BASH_REMATCH[1]}"
-		local p_val
-		p_val=$(jq -r ".params[\"$p_name\"] // \"\"" "$MANIFEST_FILE")
-		val="${val//\$\{param:$p_name\}/$p_val}"
-	done
-
-	# Resolve ${env:ENV_VAR}
-	while [[ $val =~ \$\{env:([a-zA-Z0-9_]+)\} ]]; do
-		local e_name="${BASH_REMATCH[1]}"
-		local e_val="${!e_name:-}"
-		val="${val//\$\{env:$e_name\}/$e_val}"
-	done
-
-	# Resolve ${var:key}
-	while [[ $val =~ \$\{var:([a-zA-Z0-9_]+)\} ]]; do
-		local sys_key="${BASH_REMATCH[1]}"
-		local sys_val=""
-		case "$sys_key" in
-		time) sys_val=$(date +%s) ;;
-		iso_time) sys_val=$(date -u +"%Y-%m-%dT%H:%M:%SZ") ;;
-		uid) sys_val=$(id -u) ;;
-		user) sys_val=$(whoami) ;;
-		hostname) sys_val=$(hostname) ;;
-		os) sys_val=$(uname -s) ;;
-		is_root) [[ $(id -u) -eq 0 ]] && sys_val="true" || sys_val="false" ;;
-		*) sys_val="" ;;
+	while [[ $val =~ \$\{(param|env|var):([a-zA-Z0-9_]+)\} ]]; do
+		local p_full="${BASH_REMATCH[0]}"
+		local p_type="${BASH_REMATCH[1]}"
+		local p_name="${BASH_REMATCH[2]}"
+		local p_val=""
+		case "$p_type" in
+		param) p_val="${YANAspec_params[$p_name]:-}" ;;
+		env) p_val="${!p_name:-}" ;;
+		var)
+			case "$p_name" in
+			time) p_val=$(date +%s) ;;
+			iso_time) p_val=$(date -u +"%Y-%m-%dT%H:%M:%SZ") ;;
+			uid) p_val=$(id -u) ;;
+			user) p_val=$(whoami) ;;
+			hostname) p_val=$(hostname) ;;
+			os) p_val=$(uname -s) ;;
+			is_root) [[ $(id -u) -eq 0 ]] && p_val="true" || p_val="false" ;;
+			*) p_val="" ;;
+			esac
+			;;
 		esac
-		val="${val//\$\{var:$sys_key\}/$sys_val}"
+		val="${val//"$p_full"/"$p_val"}"
 	done
 
 	echo "$val"
 }
 
+declare -A YANAspec_params
+
+yanaspec_params=$(jq -r '.params // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]' <<<"$YANAspec_json")
+
+for p in $yanaspec_params; do
+	key="${p%%=*}"
+	val_base64="${p#*=}"
+	val=$(echo "$val_base64" | base64 -d)
+	YANAspec_params["$key"]="$val"
+done
+
 # --- 4. Core Execution Loop ---
-steps_count=$(jq -r '(.steps // []) | length' "$MANIFEST_FILE")
+steps_count=$(jq -r '(.steps // []) | length' <<<"$YANAspec_json")
 
 log "=== YANA Engine Execution Target: $MANIFEST_FILE ==="
 if [[ $VERIFY_ONLY == true ]]; then
@@ -148,27 +149,28 @@ if [[ $VERIFY_ONLY == true ]]; then
 fi
 
 for ((i = 0; i < steps_count; i++)); do
-	step_json=$(jq -c ".steps[$i]" "$MANIFEST_FILE")
+	step_json=$(jq -c ".steps[$i]" <<<"$YANAspec_json")
 	step_name=$(echo "$step_json" | jq -r '.name // "step_'$i'"')
 	action=$(echo "$step_json" | jq -r '.action')
 
-	raw_args=$(echo "$step_json" | jq -r '.args // {} | to_entries | map("\(.key)=\(.value|@text | @sh)") | join(" ") ')
-
-	resolved_args=$(resolve_vars "$raw_args")
+	declare -A YANAargs
+	raw_args=$(echo "$step_json" | jq -r '.args // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]')
+	for raw_arg in $raw_args; do
+		key="${raw_arg%%=*}"
+		val_base64="${raw_arg#*=}"
+		val=$(echo "$val_base64" | base64 -d)
+		#shellcheck disable=SC2034
+		YANAargs["$key"]=$(resolve_vars "$val")
+	done
 
 	apply_func="YANAapply:${action}"
 	verify_func="YANAverify:${action}"
 
 	start_time=$(date +%s%3N 2>/dev/null || echo $(($(date +%s) * 1000)))
-
 	# Idempotency Safeguard: Pre-execution state verification
 	already_satisfied=false
 	if declare -f "$verify_func" >/dev/null; then
-		# if "$verify_func" "${resolved_args[@]}" &>/dev/null; then
-		if (
-			eval "$resolved_args"
-			"$verify_func" &>/dev/null
-		); then
+		if ("$verify_func"); then
 			already_satisfied=true
 		fi
 	fi
@@ -197,13 +199,8 @@ for ((i = 0; i < steps_count; i++)); do
 
 	# Mutating State Change
 	exec_output=""
-	set +e
-	exec_output=$(
-		eval "$resolved_args"
-		"$apply_func" 2>&1
-	)
+	exec_output=$("$apply_func")
 	exit_code=$?
-	set -e
 
 	if [[ $exit_code -ne 0 ]]; then
 		log_err "  - [FAILED] $step_name (exit code: $exit_code)"
@@ -215,14 +212,7 @@ for ((i = 0; i < steps_count; i++)); do
 
 	# Post-execution Validation
 	if declare -f "$verify_func" >/dev/null; then
-		post_verify_code=0
-
-		(
-			set +e
-			eval "$resolved_args"
-			"$verify_func" &>/dev/null
-		) || post_verify_code=$?
-		if [[ $post_verify_code -ne 0 ]]; then
+		if ! ("$verify_func"); then
 			log_err "  - [FAILED] $step_name (post-action state verification failed)"
 			exit 1
 		fi

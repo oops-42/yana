@@ -5,7 +5,8 @@
   ],
   "params": {
     "app_dir": "/tmp/yana_demo",
-    "config_file": "/tmp/yana_demo/config.env",
+    "config_file": "${param:app_dir}/config.env",
+    "status_file": "${param:app_dir}/status.txt",
     "service_port": "8080"
   },
   "steps": [
@@ -22,7 +23,7 @@
       "name": "Write marker file",
       "action": "file.write",
       "args": {
-        "path": "${param:app_dir}/status.txt",
+        "path": "${param:status_file}",
         "content": "STATUS=ACTIVE",
         "owner": "${var:user}"
       }

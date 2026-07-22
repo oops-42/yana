@@ -2,11 +2,11 @@
 # Module: service management actions
 
 YANAverify:service.start() {
-	local name="${1:-$name}"
+	local name="${YANAargs[name]}"
 	systemctl is-active --quiet "$name"
 }
 
 YANAapply:service.start() {
-	local name="${1:-$name}"
+	local name="${YANAargs[name]}"
 	systemctl start "$name"
 }
