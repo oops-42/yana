@@ -59,6 +59,13 @@
       "args": {
         "name": "nginx"
       }
+    },
+    {
+      "name": "query localhost",
+      "action": "curl.request",
+      "args": {
+        "url": "http://localhost"
+      }
     }
   ]
 }
