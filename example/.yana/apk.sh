@@ -5,10 +5,11 @@ fi
 
 YANAapply_install() {
 	local package="${YANAargs[package]}"
-  apk add --no-cache "$package"
+	apk add --no-cache "$package"
 }
 
 YANAverify_install() {
 	local package="${YANAargs[package]}"
-  apk info "$package" &>/dev/null
+	[[ -z "$package" ]] && yana_throw "'package' argument is required for apk.install action" $ERR_MISUSE
+  apk info "$package" &>/dev/null || return 1
 }

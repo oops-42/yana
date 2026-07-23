@@ -1,7 +1,6 @@
 {
   "requires": [
-    "bash",
-    "apt-get"
+    "bash"
   ],
   "params": {
     "app_dir": "/tmp/yana_demo",
@@ -34,6 +33,31 @@
         "path": "${param:config_file}",
         "content": "${output:read_marker_file}\nPORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nUSER=${env:USER}",
         "owner": "${var:user}"
+      }
+    },
+    {
+      "name": "update package index",
+      "action": "apt.update"
+    },
+    {
+      "name": "install curl",
+      "action": "apt.install",
+      "args": {
+        "package": "curl"
+      }
+    },
+    {
+      "name": "install nginx",
+      "action": "apt.install",
+      "args": {
+        "package": "nginx"
+      }
+    },
+    {
+      "name": "start nginx",
+      "action": "service.start",
+      "args": {
+        "name": "nginx"
       }
     }
   ]
