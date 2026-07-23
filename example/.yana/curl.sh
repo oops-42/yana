@@ -8,17 +8,18 @@ yanaapply_request() {
 	local headers="${YANA_ARGS[headers]:-}"
 	local data="${YANA_ARGS[data]:-}"
 	local output_file="${YANA_ARGS[output_file]:-}"
-
+	local connect_timeout="${YANA_ARGS[connect_timeout]:-10}"
+	local max_time="${YANA_ARGS[max_time]:-60}"
 	[[ -z $url ]] && yana_throw "Error: 'url' argument is required for curl.request action" $ERR_MISUSE
 
 	# Prepare curl command
-	local curl_cmd=("curl" "-sS" "-X" "$method")
+	local curl_cmd=("curl" "-sS" "--connect-timeout" "$connect_timeout" "--max-time" "$max_time" "-X" "$method")
 
 	# Add headers if provided
 	if [[ -n $headers ]]; then
 		while IFS= read -r header; do
 			curl_cmd+=("-H" "$header")
-		done <<< "$headers"
+		done <<<"$headers"
 	fi
 
 	# Add data if provided
