@@ -1,12 +1,17 @@
-# Module: apt package actions
+for cmd in apt-get dpkg; do
+	if ! command -v "$cmd" &>/dev/null; then
+		echo "$cmd command not found. Please ensure APT is installed."
+		return 1
+	fi
+done
 
-YANAverify:apt.install() {
-	local package="${YANAargs[package]}"
-	dpkg -s "$package" &>/dev/null
-}
-
-YANAapply:apt.install() {
+YANAapply_install() {
 	local package="${YANAargs[package]}"
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update -qq && apt-get install -y -qq "$package"
+}
+
+YANAverify_install() {
+	local package="${YANAargs[package]}"
+  dpkg -s "$package" &>/dev/null
 }

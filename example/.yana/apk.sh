@@ -1,11 +1,14 @@
-# Module: apk package actions
+if ! command -v apk &>/dev/null; then
+  echo "apk command not found. Please install Alpine Linux package manager."
+  return 1
+fi
 
-YANAverify:apk.install() {
-	local package="${YANAargs[package]}"
-  apk info "$package" &>/dev/null
-}
-
-YANAapply:apk.install() {
+YANAapply_install() {
 	local package="${YANAargs[package]}"
   apk add --no-cache "$package"
+}
+
+YANAverify_install() {
+	local package="${YANAargs[package]}"
+  apk info "$package" &>/dev/null
 }

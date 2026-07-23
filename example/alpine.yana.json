@@ -1,7 +1,6 @@
 {
   "requires": [
-    "bash",
-    "apk"
+    "bash"
   ],
   "params": {
     "app_dir": "/tmp/yana_demo",

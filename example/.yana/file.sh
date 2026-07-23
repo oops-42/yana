@@ -1,7 +1,4 @@
-#!/usr/bin/env bash
-# Module: file actions
-
-YANAapply:file.write() {
+YANAapply_write() {
 	local path="${YANAargs[path]}"
 	local content="${YANAargs[content]}"
 	local owner="${YANAargs[owner]}"
@@ -14,10 +11,11 @@ YANAapply:file.write() {
 	echo "$content" >"$path"
 
 	if [[ -n $owner ]]; then
-		chown "$owner" "$path" 2>/dev/null || true
+		chown "$owner" "$path"
 	fi
 }
-YANAverify:file.write() {
+
+YANAverify_write() {
 	local path="${YANAargs[path]}"
 	local content="${YANAargs[content]}"
 	local owner="${YANAargs[owner]}"
@@ -28,7 +26,7 @@ YANAverify:file.write() {
 		if [[ -n $owner ]]; then
 			local current_owner
 			current_owner=$(stat -c '%U' "$path" 2>/dev/null || stat -f '%Su' "$path" 2>/dev/null)
-			[[ "$current_owner" == "$owner" ]] && return 0
+			[[ $current_owner == "$owner" ]] && return 0
 		else
 			return 0
 		fi
