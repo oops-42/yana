@@ -190,19 +190,24 @@ YANA_exec_step() {
 
 	start_time=$(date +%s)
 	# Idempotency Safeguard: Pre-execution state verification
-	if [[ -n $YANAstep_action_verify_fn ]]; then
-		if (YANA_execute "$YANAstep_action_verify_fn"); then
-			if [[ $YANA_VERIFY_ONLY == true ]]; then
-				YANA_log "  - [COMPLIANT] $YANAstep_name (state already satisfied)"
-			else
-				YANA_log "  - [SKIPPED] $YANAstep_name (state already satisfied)"
-			fi
+	in_desired_state=false
+	if [[ -n $YANAstep_action_verify_fn ]] && (YANA_execute "$YANAstep_action_verify_fn"); then in_desired_state=true; fi
+	if [[ $YANA_VERIFY_ONLY == true ]]; then
+		if [[ $in_desired_state == true ]]; then
+			YANA_log "  - [COMPLIANT] $YANAstep_name (state already satisfied)"
 			return 0
 		else
-			if [[ $YANA_VERIFY_ONLY == true ]]; then
-				YANA_log_err "  - [NON-COMPLIANT] $YANAstep_name (state verification failed in audit mode)"
-				exit 1
+			if [[ -z $YANAstep_action_verify_fn ]]; then
+				YANA_log_err "  - [SKIPPED] $YANAstep_name (verification function does not exist for this action)"
+				return 0
 			fi
+			YANA_log_err "  - [NON-COMPLIANT] $YANAstep_name (state verification failed in audit mode)"
+			return 1
+		fi
+	else
+		if [[ $in_desired_state == true ]]; then
+			YANA_log "  - [SKIPPED] $YANAstep_name (state already satisfied)"
+			return 0
 		fi
 	fi
 
