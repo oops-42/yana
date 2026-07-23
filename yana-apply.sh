@@ -93,40 +93,18 @@ _yana_preflight_check() {
 _yana_resolve_vars() {
 	local _input="${1:-}"
 	local _resolve_iters=0
-	_str="$_input"
+	local _max_iters=50
+	local _str="$_input"
 	while [[ $_str =~ \$\{(param|env|var|output):([a-zA-Z0-9_]+)\} ]]; do
 		((_resolve_iters++))
-		if ((_resolve_iters > 50)); then
-			yana_error "Variable resolution exceeded 50 iterations (possible circular reference)." $ERR_GENERAL
-			break
-		fi
+		[[ $_resolve_iters -gt $_max_iters ]] && yana_throw "Variable resolution exceeded $_max_iters iterations (possible circular reference)." $ERR_DATA_FORMAT
 		local _var="${BASH_REMATCH[0]}" _ctx="${BASH_REMATCH[1]}" _key="${BASH_REMATCH[2]}" _value=''
 		case "$_ctx" in
 		param) _value="${_yana_spec_params[$_key]:-}" ;;
-		env) _value="${!_key:-}" ;;
-		# var) if declare -F "YANAvar_${_yana_var_key}" &>/dev/null; then
-		# 	_yana_var_value="$("YANAvar_${_yana_var_key}")"
-		# else
-		# 	_yana_var_value=""
-		# fi
-		# ;;
-		var)
-			case "$_key" in
-			time) _value=$(date +%s) ;;
-			iso_time) _value=$(date -u +"%Y-%m-%dT%H:%M:%SZ") ;;
-			uid) _value=$(id -u) ;;
-			user) _value=$(whoami) ;;
-			hostname) _value=$(hostname) ;;
-			os) _value=$(uname -s) ;;
-			is_root) [[ $(id -u) -eq 0 ]] && _value="true" || _value="false" ;;
-			*) _value="" ;;
-			esac
-			;;
+		env) declare -px "$_key" &>/dev/null && _value="${!_key:-}" ;;
 		output) _value="${_yana_outputs[$_key]:-}" ;;
-		*)
-			yana_error "Unknown variable type '$_ctx' in variable reference '$_var'. This should never happen. Please report this as a bug." 0
-			_value=""
-			;;
+		var) declare -F "yanavar_${_key}" &>/dev/null && _value="$(yanavar_"${_key}")" ;;
+		*) yana_error "Unknown variable type '$_ctx' in variable reference '$_var'. This should never happen. Please report this as a bug." 0 ;;
 		esac
 		_str="${_str//$_var/$_value}"
 	done
@@ -135,14 +113,15 @@ _yana_resolve_vars() {
 }
 
 _yana_execute_fn() {
-	local command="$1"
-	shift
-	local args=("$@")
+	local YANA_COMMAND="$1"
+	# shift
+	# local YANA_ARGV=("$@")
 	(
 		for fn in $(declare -F | awk '$3 ~ /^_yana_/ {print $3}'); do unset -f "$fn"; done
-		for v in $(declare -p | awk '$3 ~ /^_yana_[a-zA-Z0-9_]+/ {gsub(/(=.*)/, "", $3); print $3} '); do unset -v "$v"; done
-		declare -F "$command" &>/dev/null || yana_throw "Function '$command' not found." $ERR_MISUSE
-		"$command" "${args[@]}"
+		for v in $(declare -p | awk -F '[ =]' '$3 ~ /^_yana_/ {print $3}'); do unset -v "$v"; done
+		unset -v fn v
+		declare -F "$YANA_COMMAND" &>/dev/null || yana_throw "Function '$YANA_COMMAND' not found." $ERR_MISUSE
+		"$YANA_COMMAND" # "${YANA_ARGV[@]}"
 	)
 }
 
@@ -162,14 +141,14 @@ _yana_exec_step() {
 	fi
 
 	local _yana_step_args _yana_step_arg _yana_step_arg_key _yana_step_arg_val_b64 _yana_step_arg_val
-	local -A YANAargs=()
+	local -A YANA_ARGS=()
 	_yana_step_args=$(echo "$_yana_step_json" | jq -r '(.args | objects) // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]')
 	for _yana_step_arg in $_yana_step_args; do
 		_yana_step_arg_key="${_yana_step_arg%%=*}"
 		_yana_step_arg_val_b64="${_yana_step_arg#*=}"
 		_yana_step_arg_val=$(echo "$_yana_step_arg_val_b64" | base64 -d)
 		#shellcheck disable=SC2034
-		YANAargs["$_yana_step_arg_key"]=$(_yana_resolve_vars "$_yana_step_arg_val")
+		YANA_ARGS["$_yana_step_arg_key"]=$(_yana_resolve_vars "$_yana_step_arg_val")
 	done
 
 	# Action format: `[module/]script.function`
@@ -181,12 +160,23 @@ _yana_exec_step() {
 	[[ -n $_yana_step_action_script && -n $_yana_step_action_fn ]] ||
 		yana_throw "Invalid action format '$_yana_step_action' in step '$_yana_step_name'. Expected format: [module/]script.function" $ERR_DATA_FORMAT
 
+	# Load the common functions for the module if it exists
+	_yana_step_common_scripts=$(ls -1 "$MODULES_DIR"/*/.sh "$MODULES_DIR/.sh" 2>/dev/null || true)
+	_ifs="$IFS"
+	IFS=$'\n'
+	for _yana_step_common_script_path in $_yana_step_common_scripts; do
+		IFS="$_ifs"
+		# shellcheck source=/dev/null
+		source "$_yana_step_common_script_path" || yana_throw "Failed to source script '$_yana_step_common_script_path' for step '$_yana_step_name'." $?
+	done
+	IFS="$_ifs"
+
 	_yana_step_script_path="$MODULES_DIR/$_yana_step_action_module/$_yana_step_action_script.sh"
 	[[ -f $_yana_step_script_path ]] || yana_throw "Script '$_yana_step_script_path' not found for step '$_yana_step_name'." $ERR_NO_INPUT
 	# shellcheck source=/dev/null
 	source "$_yana_step_script_path" || yana_throw "Failed to source script '$_yana_step_script_path' for step '$_yana_step_name'." $?
 
-	local _yana_step_action_apply_fn="YANAapply_${_yana_step_action_fn}" _yana_step_action_verify_fn="YANAverify_${_yana_step_action_fn}"
+	local _yana_step_action_apply_fn="yanaapply_${_yana_step_action_fn}" _yana_step_action_verify_fn="yanaverify_${_yana_step_action_fn}"
 	declare -F "$_yana_step_action_apply_fn" &>/dev/null ||
 		yana_throw "Function '$_yana_step_action_apply_fn' not found for step '$_yana_step_name'." $ERR_NO_INPUT
 	declare -F "$_yana_step_action_verify_fn" &>/dev/null || _yana_step_action_verify_fn='' # Verification function is optional
@@ -234,16 +224,14 @@ _yana_exec_step() {
 
 	_yana_step_end_time=$(date +%s)
 	_yana_step_elapsed=$((_yana_step_end_time - _yana_step_start_time))
-
 	yana_log "  - [OK] $_yana_step_name (elapsed: ${_yana_step_elapsed}s)"
-
 }
 
 _yana_read_spec_file() {
 	local _yana_spec_file="${1:-}"
 	[[ -n $_yana_spec_file ]] || yana_throw "No spec file provided." $ERR_MISUSE
 	[[ -f $_yana_spec_file ]] || yana_throw "Spec file '$_yana_spec_file' not found." $ERR_NO_INPUT
-	jq -c '.' "$_yana_spec_file" 2>/dev/null || yana_throw "Failed to parse YANA spec file '$_yana_spec_file'. Ensure it is valid JSON." $ERR_DATA_FORMAT
+	jq -c -r '.' "$_yana_spec_file" 2>/dev/null || yana_throw "Failed to parse YANA spec file '$_yana_spec_file'. Ensure it is valid JSON." $ERR_DATA_FORMAT
 }
 
 _yana_apply_spec() {
@@ -256,21 +244,21 @@ _yana_apply_spec() {
 
 	# Extract parameters into associative array
 	local -A _yana_spec_params=()
-	local _yana_spec_params_raw
+	local _yana_spec_params_raw _yana_spec_param _yana_spec_param_value
 	_yana_spec_params_raw=$(jq -r '.params // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]' <<<"$_yana_spec_json")
 	for _yana_spec_param in $_yana_spec_params_raw; do
-		_yana_spec_param_key="${_yana_spec_param%%=*}"
-		_yana_spec_param_value_base64="${_yana_spec_param#*=}"
-		_yana_spec_param_value=$(echo "$_yana_spec_param_value_base64" | base64 -d)
+		local _yana_spec_param_key="${_yana_spec_param%%=*}"
+		local _yana_spec_param_value_b64="${_yana_spec_param#*=}"
+		_yana_spec_param_value=$(echo "$_yana_spec_param_value_b64" | base64 -d)
 		_yana_spec_params["$_yana_spec_param_key"]="$_yana_spec_param_value"
 	done
 
-	local -A _yana_outputs=()
 	yana_log "=== YANA Engine Execution Target: $_yana_spec_file ==="
 	if [[ $YANA_VERIFY_ONLY == true ]]; then
 		yana_log "Mode: Compliance Audit (--verify-only)"
 	fi
 
+	local -A _yana_outputs=()
 	_yana_spec_steps=$(jq -r -c '.steps // [] | .[] | @base64' <<<"$_yana_spec_json")
 	# Execute steps
 	for _yana_step in $_yana_spec_steps; do
