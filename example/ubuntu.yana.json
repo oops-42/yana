@@ -1,0 +1,71 @@
+{
+  "requires": [
+    "bash"
+  ],
+  "params": {
+    "app_dir": "/tmp/yana_demo",
+    "config_file": "${param:app_dir}/config.env",
+    "marker_file": "${param:app_dir}/status.txt",
+    "service_port": "8080"
+  },
+  "steps": [
+    {
+      "name": "Create marker file",
+      "action": "file.create",
+      "args": {
+        "path": "${param:marker_file}",
+        "content": "STATUS=ACTIVE",
+        "owner": "${var:user}:${var:group}"
+      }
+    },
+    {
+      "id": "read_marker_file",
+      "name": "Read marker file",
+      "action": "file.read",
+      "args": {
+        "path": "${param:marker_file}"
+      }
+    },
+    {
+      "name": "Ensure application configuration exists",
+      "action": "file.write",
+      "args": {
+        "path": "${param:config_file}",
+        "content": "${output:read_marker_file}\nPORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nUSER=${env:USER}",
+        "owner": "${var:user}:${var:group}"
+      }
+    },
+    {
+      "name": "update package index",
+      "action": "apt.update"
+    },
+    {
+      "name": "install curl",
+      "action": "apt.install",
+      "args": {
+        "package": "curl"
+      }
+    },
+    {
+      "name": "install nginx",
+      "action": "apt.install",
+      "args": {
+        "package": "nginx"
+      }
+    },
+    {
+      "name": "start nginx",
+      "action": "service.start",
+      "args": {
+        "name": "nginx"
+      }
+    },
+    {
+      "name": "query localhost",
+      "action": "curl.request",
+      "args": {
+        "url": "http://localhost"
+      }
+    }
+  ]
+}

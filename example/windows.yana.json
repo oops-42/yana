@@ -1,0 +1,33 @@
+{
+  "requires": [
+    "powershell"
+  ],
+  "params": {
+    "service_name": "WinRM",
+    "app_directory": "C:\\YanaApp\\logs"
+  },
+  "steps": [
+    {
+      "name": "Create Application Log Directory",
+      "action": "dir.create",
+      "args": {
+        "Path": "${param:app_directory}"
+      }
+    },
+    {
+      "name": "Write Application Log File",
+      "action": "file.write",
+      "args": {
+        "Path": "${param:app_directory}\\app.log",
+        "Content": "Application started at ${var:time}\nUser: ${env:USERNAME}"
+      }
+    },
+    {
+      "name": "Ensure WinRM Service is Started",
+      "action": "service.start",
+      "args": {
+        "Name": "${param:service_name}"
+      }
+    }
+  ]
+}

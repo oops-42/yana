@@ -4,7 +4,9 @@ WORKDIR /yana
 COPY *.ps1 ./
 COPY *.json ./
 # COPY examples ./examples/
+COPY example ./example/
 
 RUN powershell -File ./yana-test.ps1
 
-ENTRYPOINT ["powershell", "-File", "./yana.ps1"]
+# ENTRYPOINT ["powershell", "-File", "./yana.ps1"]
+ENTRYPOINT ["powershell"]

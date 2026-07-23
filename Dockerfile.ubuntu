@@ -1,6 +1,6 @@
-FROM alpine:latest
+FROM ubuntu:latest
 
-RUN apk add --no-cache bash jq
+RUN apt-get update -qq && apt-get install -y -qq bash jq
 
 WORKDIR /yana
 COPY *.sh .
