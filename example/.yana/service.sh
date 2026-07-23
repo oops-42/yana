@@ -1,5 +1,5 @@
 if ! command -v systemctl &>/dev/null; then
-	echo "systemctl command not found. Please ensure systemd is installed."
+	echo "systemctl command not found. Please ensure systemd is installed." >&2
 	return 1
 fi
 

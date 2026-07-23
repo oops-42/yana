@@ -1,6 +1,6 @@
 for cmd in apt-get dpkg; do
 	if ! command -v "$cmd" &>/dev/null; then
-		echo "$cmd command not found. Please ensure APT is installed."
+		echo "$cmd command not found. Please ensure APT is installed." >&2
 		return 1
 	fi
 done

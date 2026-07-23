@@ -1,5 +1,5 @@
 if ! command -v apk &>/dev/null; then
-  echo "apk command not found. Please install Alpine Linux package manager."
+  echo "apk command not found. Please install Alpine Linux package manager." >&2
   return 1
 fi
 
