@@ -3,37 +3,37 @@ if ! command -v service &>/dev/null; then
 	return 1
 fi
 
-YANAapply_start() {
-	local name="${YANAargs[name]}"
+yanaapply_start() {
+	local name="${YANA_ARGS[name]:-}"
 	service "$name" start
 }
 
-YANAverify_start() {
-	local name="${YANAargs[name]}"
+yanaverify_start() {
+	local name="${YANA_ARGS[name]:-}"
 	[[ -z "$name" ]] && yana_throw "'name' argument is required for service.start action" $ERR_MISUSE
 	service "$name" status &>/dev/null || return 1
 }
 
-YANAapply_stop() {
-	local name="${YANAargs[name]}"
+yanaapply_stop() {
+	local name="${YANA_ARGS[name]:-}"
 	service "$name" stop
 }
 
-YANAverify_stop() {
-	local name="${YANAargs[name]}"
+yanaverify_stop() {
+	local name="${YANA_ARGS[name]:-}"
 	[[ -z "$name" ]] && yana_throw "'name' argument is required for service.stop action" $ERR_MISUSE
 	service "$name" status &>/dev/null || return 0
 	return 1
 }
 
-YANAapply_restart() {
-	local name="${YANAargs[name]}"
+yanaapply_restart() {
+	local name="${YANA_ARGS[name]:-}"
 	[[ -z "$name" ]] && yana_throw "'name' argument is required for service.restart action" $ERR_MISUSE
 	service "$name" restart
 }
 
-YANAapply_reload() {
-	local name="${YANAargs[name]}"
+yanaapply_reload() {
+	local name="${YANA_ARGS[name]:-}"
 	[[ -z "$name" ]] && yana_throw "'name' argument is required for service.reload action" $ERR_MISUSE
 	service "$name" reload
 }

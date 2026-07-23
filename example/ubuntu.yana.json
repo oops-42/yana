@@ -15,7 +15,7 @@
       "args": {
         "path": "${param:marker_file}",
         "content": "STATUS=ACTIVE",
-        "owner": "${var:user}"
+        "owner": "${var:user}:${var:group}"
       }
     },
     {
@@ -32,7 +32,7 @@
       "args": {
         "path": "${param:config_file}",
         "content": "${output:read_marker_file}\nPORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nUSER=${env:USER}",
-        "owner": "${var:user}"
+        "owner": "${var:user}:${var:group}"
       }
     },
     {

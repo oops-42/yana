@@ -3,13 +3,13 @@ if ! command -v apk &>/dev/null; then
   return 1
 fi
 
-YANAapply_install() {
-	local package="${YANAargs[package]}"
+yanaapply_install() {
+	local package="${YANA_ARGS[package]:-}"
 	apk add --no-cache "$package"
 }
 
-YANAverify_install() {
-	local package="${YANAargs[package]}"
+yanaverify_install() {
+	local package="${YANA_ARGS[package]:-}"
 	[[ -z "$package" ]] && yana_throw "'package' argument is required for apk.install action" $ERR_MISUSE
   apk info "$package" &>/dev/null || return 1
 }
