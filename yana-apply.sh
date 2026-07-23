@@ -85,8 +85,14 @@ YANA_check_prerequisites() {
 # --- Helper: Dynamic Variable Resolver ---
 YANA_resolve_vars() {
 	local val="${1:-}"
+	local _resolve_iters=0
 
 	while [[ $val =~ \$\{(param|env|var):([a-zA-Z0-9_]+)\} ]]; do
+		((_resolve_iters++))
+		if ((_resolve_iters > 50)); then
+			YANA_log_err "[ERROR] Variable resolution exceeded max iterations (possible circular reference)."
+			break
+		fi
 		local p_full="${BASH_REMATCH[0]}"
 		local p_type="${BASH_REMATCH[1]}"
 		local p_name="${BASH_REMATCH[2]}"
@@ -190,25 +196,23 @@ YANA_exec_step() {
 
 	start_time=$(date +%s)
 	# Idempotency Safeguard: Pre-execution state verification
+	if [[ -z $YANAstep_action_verify_fn ]] && [[ $YANA_VERIFY_ONLY == true ]]; then
+		YANA_log_err "  - [SKIPPED] $YANAstep_name (verification function does not exist for this action)"
+		return 0
+	fi
 	in_desired_state=false
 	if [[ -n $YANAstep_action_verify_fn ]] && (YANA_execute "$YANAstep_action_verify_fn"); then in_desired_state=true; fi
+	if [[ $YANA_VERIFY_ONLY != true ]] && [[ $in_desired_state == true ]]; then
+		YANA_log "  - [SKIPPED] $YANAstep_name (state already satisfied)"
+		return 0
+	fi
 	if [[ $YANA_VERIFY_ONLY == true ]]; then
 		if [[ $in_desired_state == true ]]; then
 			YANA_log "  - [COMPLIANT] $YANAstep_name (state already satisfied)"
 			return 0
-		else
-			if [[ -z $YANAstep_action_verify_fn ]]; then
-				YANA_log_err "  - [SKIPPED] $YANAstep_name (verification function does not exist for this action)"
-				return 0
-			fi
-			YANA_log_err "  - [NON-COMPLIANT] $YANAstep_name (state verification failed in audit mode)"
-			return 1
 		fi
-	else
-		if [[ $in_desired_state == true ]]; then
-			YANA_log "  - [SKIPPED] $YANAstep_name (state already satisfied)"
-			return 0
-		fi
+		YANA_log_err "  - [NON-COMPLIANT] $YANAstep_name (state verification failed in audit mode)"
+		return 1
 	fi
 
 	# Mutating State Change
