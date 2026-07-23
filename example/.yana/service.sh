@@ -1,6 +1,5 @@
 if ! command -v service &>/dev/null; then
-	echo "service command not found. Please ensure sysvinit is installed." >&2
-	return 1
+	yana_throw "service command not found. Please ensure sysvinit is installed." $ERR_GENERAL
 fi
 
 yanaapply_start() {

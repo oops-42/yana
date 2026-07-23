@@ -1,6 +1,5 @@
 if ! command -v apk &>/dev/null; then
-  echo "apk command not found. Please install Alpine Linux package manager." >&2
-  return 1
+  yana_throw "apk command not found. Please install Alpine Linux package manager." $ERR_GENERAL
 fi
 
 yanaapply_install() {

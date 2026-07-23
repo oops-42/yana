@@ -1,7 +1,6 @@
 for cmd in apt-get dpkg; do
 	if ! command -v "$cmd" &>/dev/null; then
-		echo "$cmd command not found. Please ensure APT is installed." >&2
-		return 1
+		yana_throw "Error: '$cmd' command not found. Please ensure APT is installed." $ERR_GENERAL
 	fi
 done
 
@@ -21,7 +20,7 @@ yanaapply_upgrade() {
 
 yanaverify_upgrade() {
 	# Check if there are any packages that can be upgraded
-	apt list --upgradable 2>/dev/null | grep -q 'upgradable' || return 1
+	apt list --upgradable 2>/dev/null | grep -q 'upgradable' && return 1
 }
 
 yanaapply_remove() {
@@ -32,8 +31,8 @@ yanaapply_remove() {
 yanaverify_remove() {
 	local package="${YANA_ARGS[package]:-}"
 	[[ -z $package ]] && yana_throw "'package' argument is required for apt.remove action" $ERR_MISUSE
-	dpkg -s "$package" &>/dev/null || return 0
-	return 1
+	dpkg -s "$package" &>/dev/null && return 1
+
 }
 
 yanaapply_install() {
