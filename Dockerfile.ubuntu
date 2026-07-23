@@ -1,0 +1,12 @@
+FROM ubuntu:latest
+
+RUN apt-get update -qq && apt-get install -y -qq bash jq
+
+WORKDIR /yana
+COPY *.sh .
+COPY *.json .
+COPY example ./example
+
+RUN ./yana-test.sh
+
+# ENTRYPOINT ["bash", "./yana.sh"]
