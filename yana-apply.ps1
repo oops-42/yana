@@ -28,11 +28,16 @@ function yana_log([string]$Message, [string]$Level = 'INFO') {
     'WARN'  = 'Yellow'
     'ERROR' = 'Red'
   }
+  $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+  $line = "[$timestamp] [$Level] $Message"
+  switch ($Level) {
+    'ERROR' { Write-Error $line -ErrorAction Continue; return }
+    'WARN' { Write-Warning $line; return }
+  }
   if (-not $Quiet) {
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $color = $_yana_log_levels[$Level]
     if (-not $color) { $color = 'White' }
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
+    Write-Host $line -ForegroundColor $color
   }
 }
 
@@ -101,7 +106,7 @@ function _yana_resolve_vars([string]$InputString, [hashtable]$Params, [hashtable
       }
       default { yana_error "Unknown variable type '$_ctx' in variable reference '$_var'. This should never happen. Please report this as a bug." }
     }
-    $_outputString = $_outputString -replace [regex]::Escape($_var), $_value
+    $_outputString = $_outputString.Replace($_var, $_value)
   }
   $_outputString
 }
@@ -143,7 +148,7 @@ function _yana_parse_action_name([string]$ActionString) {
   if ($ActionString -match $pattern) {
     return @{ module = $Matches[2]; script = $Matches[3]; function = $Matches[4] }
   } else {
-    yana_raise "Invalid action format '$ActionString'. Expected format: '[module/]script.function'" $ERR_DATA_FORMAT
+    yana_throw "Invalid action format '$ActionString'. Expected format: '[module/]script.function'" $ERR_DATA_FORMAT
   }
 }
 
@@ -165,14 +170,20 @@ function _yana_exec_step([hashtable]$Step, [hashtable]$Params, [hashtable]$Outpu
     $stepId = ''
   }
 
-  Get-ChildItem -Path (Join-Path -Path $ModuleDir -ChildPath '.yana') -Filter '.ps1' | ForEach-Object {
+  # Source only '.ps1' files from the module's '.yana' directory recursively
+  $stepModuleYanaDir = [System.IO.Path]::Combine($ModuleDir, '.yana', $stepModule)
+  if (-not (Test-Path -Path $stepModuleYanaDir)) {
+    yana_throw "Module directory '$stepModuleYanaDir' does not exist for step '$stepName'." $ERR_NO_INPUT
+  }
+  Get-ChildItem -Path $stepModuleYanaDir -Recurse -Filter '.ps1' -ErrorAction SilentlyContinue | ForEach-Object {
+    $fn = $_.FullName
     try {
-      . $_.FullName
+      . $fn
     } catch {
-      yana_throw "Failed to source common script '$($_.FullName)' for step '$stepName'. Error: $_" $ERR_GENERAL
+      yana_throw "Failed to source common script '$fn' for step '$stepName'. Error: $_" $ERR_GENERAL
     }
   }
-  $stepScriptPath = [System.IO.Path]::Combine($ModuleDir, '.yana', "$stepScript.ps1")
+  $stepScriptPath = [System.IO.Path]::Combine($stepModuleYanaDir, "$stepScript.ps1")
   if (-not (Test-Path -Path $stepScriptPath)) {
     yana_throw "Step script '$stepScriptPath' for step '$stepName' not found." $ERR_NO_INPUT
   }
@@ -208,7 +219,7 @@ function _yana_exec_step([hashtable]$Step, [hashtable]$Params, [hashtable]$Outpu
     yana_log "  - [SKIPPED] $stepName (verification function does not exist for this action)"
     if ($VerifyOnly) { return $true }
   } else {
-    $verifyResult = _yana_execute_fn -FunctionName $verifyFuncName -FunctionArgs $YANA_ARGS
+    $verifyResult = _yana_execute_fn -FunctionName $verifyFuncName -FunctionArgs $YANA_ARGS | Select-Object -Last 1
     if ($verifyResult -eq $true) {
       if ($VerifyOnly) {
         yana_log "  - [COMPLIANT] $stepName (no changes needed)"
@@ -219,7 +230,7 @@ function _yana_exec_step([hashtable]$Step, [hashtable]$Params, [hashtable]$Outpu
       }
     } else {
       if ($VerifyOnly) {
-        yana_log "  - [NON-COMPLIANT] $stepName (changes needed)" 'WARN'
+        yana_throw "  - [NON-COMPLIANT] $stepName (changes needed)" $ERR_GENERAL
         return $false
       }
     }
@@ -236,7 +247,7 @@ function _yana_exec_step([hashtable]$Step, [hashtable]$Params, [hashtable]$Outpu
   }
 
   if (-not [string]::IsNullOrEmpty($verifyFuncName)) {
-    $postVerifyResult = _yana_execute_fn -FunctionName $verifyFuncName -FunctionArgs $YANA_ARGS
+    $postVerifyResult = _yana_execute_fn -FunctionName $verifyFuncName -FunctionArgs $YANA_ARGS | Select-Object -Last 1
     if ($postVerifyResult -ne $true) {
       yana_throw "Post-verification failed for step '$stepName'. State change did not stick." $ERR_GENERAL
     } else {
@@ -272,15 +283,25 @@ function _yana_read_spec_file([string]$ManifestFile) {
   } catch {
     yana_throw "Failed to parse YANA spec file '$ManifestFile'. Ensure it is valid JSON. Error: $_" $ERR_DATA_FORMAT
   }
-  return $spec
+  if ($spec -isnot [hashtable]) { yana_throw "Spec file '$ManifestFile' did not evaluate to a hashtable." $ERR_DATA_FORMAT }
+  $spec
 }
 function _yana_apply_spec() {
   $ManifestFile = [System.IO.Path]::Combine($ModuleDir, $Manifest)
   $_yana_spec = _yana_read_spec_file -ManifestFile $ManifestFile
-  _yana_check_prerequisites -Requirements $_yana_spec.requires
+  _yana_check_prerequisites -Requirements $_yana_spec['requires']
 
   $_yana_spec_params = $_yana_spec['params']
+  if ($null -eq $_yana_spec_params) { $_yana_spec_params = @{} }
 
+  yana_log "=== YANA Engine Execution Target: $ManifestFile ==="
+  if ($VerifyOnly) { yana_log 'Mode: Compliance Audit (--verify-only)' }
+
+  $_yana_outputs = @{}
+  $yana_spec_steps = $_yana_spec['steps']
+  if (-not $yana_spec_steps) {
+    yana_throw "Spec '$ManifestFile' declares no steps." $ERR_DATA_FORMAT
+  }
   yana_log "=== YANA Engine Execution Target: $ManifestFile ==="
   if ($VerifyOnly) { yana_log 'Mode: Compliance Audit (--verify-only)' }
 
