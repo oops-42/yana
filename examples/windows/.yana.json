@@ -4,10 +4,12 @@
   ],
   "params": {
     "service_name": "WinRM",
-    "app_directory": "C:\\YanaApp\\logs"
+    "app_directory": "C:\\YanaApp\\logs",
+    "log_file": "${param:app_directory}\\app.log"
   },
   "steps": [
     {
+      "id": "create_log_dir",
       "name": "Create Application Log Directory",
       "action": "dir.create",
       "args": {
@@ -18,8 +20,8 @@
       "name": "Write Application Log File",
       "action": "file.write",
       "args": {
-        "Path": "${param:app_directory}\\app.log",
-        "Content": "Application started at ${var:time}\nUser: ${env:USERNAME}"
+        "Path": "${param:log_file}",
+        "Content": "Application started at ${var:time}\nUser: ${env:USERNAME}\nLog directory: ${output:create_log_dir}\n"
       }
     },
     {

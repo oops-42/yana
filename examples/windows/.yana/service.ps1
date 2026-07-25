@@ -1,4 +1,4 @@
-function YANAapply:service.ensure {
+function YANAapply_ensure {
   param ([string]$Name, [string]$State)
   $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
   if ($null -eq $service) {
@@ -12,29 +12,31 @@ function YANAapply:service.ensure {
   }
 }
 
-function YANAverify:service.ensure {
+function YANAverify_ensure {
   param ([string]$Name, [string]$State)
+  if ([string]::IsNullOrEmpty($Name)) { throw 'Name cannot be null or empty.' }
+  if ([string]::IsNullOrEmpty($State)) { throw 'State cannot be null or empty.' }
   # Return true if service matches the desired state
   $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
   $null -ne $service -and $service.Status -eq $State
 }
 
-function YANAapply:service.stop {
+function YANAapply_stop {
   param ([string]$Name)
-  YANAapply:service.ensure -Name $Name -State 'Stopped'
+  YANAapply_ensure -Name $Name -State 'Stopped'
 }
 
-function YANAverify:service.stop {
+function YANAverify_stop {
   param ([string]$Name)
-  YANAverify:service.ensure -Name $Name -State 'Stopped'
+  YANAverify_ensure -Name $Name -State 'Stopped'
 }
 
-function YANAapply:service.start {
+function YANAapply_start {
   param ([string]$Name)
-  YANAapply:service.ensure -Name $Name -State 'Running'
+  YANAapply_ensure -Name $Name -State 'Running'
 }
 
-function YANAverify:service.start {
+function YANAverify_start {
   param ([string]$Name)
-  YANAverify:service.ensure -Name $Name -State 'Running'
+  YANAverify_ensure -Name $Name -State 'Running'
 }
