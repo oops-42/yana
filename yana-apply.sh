@@ -140,17 +140,6 @@ _yana_exec_step() {
 		_yana_step_id=''
 	fi
 
-	local _yana_step_args _yana_step_arg _yana_step_arg_key _yana_step_arg_val_b64 _yana_step_arg_val
-	local -A YANA_ARGS=()
-	_yana_step_args=$(echo "$_yana_step_json" | jq -r '(.args | objects) // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]')
-	for _yana_step_arg in $_yana_step_args; do
-		_yana_step_arg_key="${_yana_step_arg%%=*}"
-		_yana_step_arg_val_b64="${_yana_step_arg#*=}"
-		_yana_step_arg_val=$(echo "$_yana_step_arg_val_b64" | base64 -d)
-		#shellcheck disable=SC2034
-		YANA_ARGS["$_yana_step_arg_key"]=$(_yana_resolve_vars "$_yana_step_arg_val")
-	done
-
 	# Action format: `[module/]script.function`
 	local _yana_step_action_module="${_yana_step_action%%/*}"
 	[[ $_yana_step_action_module == "$_yana_step_action" ]] && _yana_step_action_module='' # Default module if no module specified
@@ -158,7 +147,7 @@ _yana_exec_step() {
 	local _yana_step_action_script="${_yana_step_action_script_fn%%.*}"
 	local _yana_step_action_fn="${_yana_step_action_script_fn#*.}"
 	[[ -n $_yana_step_action_script && -n $_yana_step_action_fn ]] ||
-		yana_throw "Invalid action format '$_yana_step_action' in step '$_yana_step_name'. Expected format: [module/]script.function" $ERR_DATA_FORMAT
+		yana_throw "Invalid action format '$_yana_step_action'. Expected format: '[module/]script.function'" $ERR_DATA_FORMAT
 
 	# Load the common functions for the module if it exists
 	_yana_step_common_scripts=$(ls -1 "$MODULES_DIR"/*/.sh "$MODULES_DIR/.sh" 2>/dev/null || true)
@@ -180,6 +169,17 @@ _yana_exec_step() {
 	declare -F "$_yana_step_action_apply_fn" &>/dev/null ||
 		yana_throw "Function '$_yana_step_action_apply_fn' not found for step '$_yana_step_name'." $ERR_NO_INPUT
 	declare -F "$_yana_step_action_verify_fn" &>/dev/null || _yana_step_action_verify_fn='' # Verification function is optional
+
+	local _yana_step_args _yana_step_arg _yana_step_arg_key _yana_step_arg_val_b64 _yana_step_arg_val
+	local -A YANA_ARGS=()
+	_yana_step_args=$(echo "$_yana_step_json" | jq -r '(.args | objects) // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]')
+	for _yana_step_arg in $_yana_step_args; do
+		_yana_step_arg_key="${_yana_step_arg%%=*}"
+		_yana_step_arg_val_b64="${_yana_step_arg#*=}"
+		_yana_step_arg_val=$(echo "$_yana_step_arg_val_b64" | base64 -d)
+		#shellcheck disable=SC2034
+		YANA_ARGS["$_yana_step_arg_key"]=$(_yana_resolve_vars "$_yana_step_arg_val")
+	done
 
 	local _yana_step_start_time _yana_step_end_time _yana_step_elapsed
 	_yana_step_start_time=$(date +%s)
