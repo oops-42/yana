@@ -171,7 +171,11 @@ function _yana_exec_step([hashtable]$Step, [hashtable]$Params, [hashtable]$Outpu
   }
 
   # Source only '.ps1' files from the module's '.yana' directory recursively
-  $stepModuleYanaDir = [System.IO.Path]::Combine($ModuleDir, '.yana', $stepModule)
+  $stepModuleYanaDir = if ([string]::IsNullOrEmpty($stepModule)) {
+    [System.IO.Path]::Combine($ModuleDir, '.yana')
+  } else {
+    [System.IO.Path]::Combine($ModuleDir, '.yana', $stepModule)
+  }
   if (-not (Test-Path -Path $stepModuleYanaDir)) {
     yana_throw "Module directory '$stepModuleYanaDir' does not exist for step '$stepName'." $ERR_NO_INPUT
   }
@@ -183,6 +187,7 @@ function _yana_exec_step([hashtable]$Step, [hashtable]$Params, [hashtable]$Outpu
       yana_throw "Failed to source common script '$fn' for step '$stepName'. Error: $_" $ERR_GENERAL
     }
   }
+  # Source the specific step script
   $stepScriptPath = [System.IO.Path]::Combine($stepModuleYanaDir, "$stepScript.ps1")
   if (-not (Test-Path -Path $stepScriptPath)) {
     yana_throw "Step script '$stepScriptPath' for step '$stepName' not found." $ERR_NO_INPUT
@@ -293,6 +298,9 @@ function _yana_apply_spec() {
 
   $_yana_spec_params = $_yana_spec['params']
   if ($null -eq $_yana_spec_params) { $_yana_spec_params = @{} }
+  if ($_yana_spec_params -isnot [hashtable]) {
+    yana_throw "Spec '$ManifestFile' field 'params' must be an object." $ERR_DATA_FORMAT
+  }
 
   yana_log "=== YANA Engine Execution Target: $ManifestFile ==="
   if ($VerifyOnly) { yana_log 'Mode: Compliance Audit (--verify-only)' }
