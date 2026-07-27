@@ -39,7 +39,7 @@ yanaverify_write() {
 
 	# Return 0 if file exists and matches content
 	[[ -f $path ]] || return 1
-	[[ "$(cat "$path")" == "$content" ]] || return 1
+	printf '%s\n' "$content" | cmp -s - "$path" || return 1
 	if [[ -n $owner ]]; then
 		local current_owner
 		if [[ $owner == *:* ]]; then
