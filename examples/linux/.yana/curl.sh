@@ -1,5 +1,5 @@
 if ! command -v curl >/dev/null 2>&1; then
-	yana_throw "Error: 'curl' command not found. Please install curl to use the curl.request action." $ERR_GENERAL
+	throw "Error: 'curl' command not found. Please install curl to use the curl.request action." $ERR_GENERAL
 fi
 
 yanaapply_request() {
@@ -10,7 +10,7 @@ yanaapply_request() {
 	local output_file="${YANA_ARGS[output_file]:-}"
 	local connect_timeout="${YANA_ARGS[connect_timeout]:-10}"
 	local max_time="${YANA_ARGS[max_time]:-60}"
-	[[ -z $url ]] && yana_throw "Error: 'url' argument is required for curl.request action" $ERR_MISUSE
+	[[ -z $url ]] && throw "Error: 'url' argument is required for curl.request action" $ERR_MISUSE
 
 	# Prepare curl command
 	local curl_cmd=("curl" "-sS" "--connect-timeout" "$connect_timeout" "--max-time" "$max_time" "-X" "$method")
