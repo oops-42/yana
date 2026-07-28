@@ -11,14 +11,14 @@
     {
       "id": "create_log_dir",
       "name": "Create Application Log Directory",
-      "action": "dir.create",
+      "action": "dir:create",
       "args": {
         "Path": "${param:app_directory}"
       }
     },
     {
       "name": "Write Application Log File",
-      "action": "file.write",
+      "action": "file:write",
       "args": {
         "Path": "${param:log_file}",
         "Content": "Application started at ${var:time}\nUser: ${env:USERNAME}\nLog directory: ${output:create_log_dir}\n"
@@ -26,7 +26,7 @@
     },
     {
       "name": "Ensure WinRM Service is Started",
-      "action": "service.start",
+      "action": "service:start",
       "args": {
         "Name": "${param:service_name}"
       }

@@ -11,7 +11,7 @@
   "steps": [
     {
       "name": "Create marker file",
-      "action": "file.create",
+      "action": "file:create",
       "args": {
         "path": "${param:marker_file}",
         "content": "STATUS=ACTIVE",
@@ -21,14 +21,14 @@
     {
       "id": "read_marker_file",
       "name": "Read marker file",
-      "action": "file.read",
+      "action": "file:read",
       "args": {
         "path": "${param:marker_file}"
       }
     },
     {
       "name": "Ensure application configuration exists",
-      "action": "file.write",
+      "action": "file:write",
       "args": {
         "path": "${param:config_file}",
         "content": "${output:read_marker_file}\nPORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nUSER=${env:USER}",
@@ -37,32 +37,32 @@
     },
     {
       "name": "update package index",
-      "action": "apt.update"
+      "action": "apt:update"
     },
     {
       "name": "install curl",
-      "action": "apt.install",
+      "action": "apt:install",
       "args": {
         "package": "curl"
       }
     },
     {
       "name": "install nginx",
-      "action": "apt.install",
+      "action": "apt:install",
       "args": {
         "package": "nginx"
       }
     },
     {
       "name": "start nginx",
-      "action": "service.start",
+      "action": "service:start",
       "args": {
         "name": "nginx"
       }
     },
     {
       "name": "query localhost",
-      "action": "curl.request",
+      "action": "curl:request",
       "args": {
         "url": "http://localhost"
       }

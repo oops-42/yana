@@ -1,3 +1,1 @@
-function YANAvar_time {
-  [datetime]::UtcNow.ToString('o')
-}
+function YANAvar_time { [datetime]::UtcNow.ToString('o') }

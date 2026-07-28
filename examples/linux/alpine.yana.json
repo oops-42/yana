@@ -10,7 +10,7 @@
   "steps": [
     {
       "name": "Ensure application configuration exists",
-      "action": "file.write",
+      "action": "file:write",
       "args": {
         "path": "${param:config_file}",
         "content": "PORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nUSER=${env:USER}",
@@ -19,7 +19,7 @@
     },
     {
       "name": "Write marker file",
-      "action": "file.write",
+      "action": "file:write",
       "args": {
         "path": "${param:app_dir}/status.txt",
         "content": "STATUS=ACTIVE",
@@ -28,7 +28,7 @@
     },
     {
       "name": "install nginx",
-      "action": "apk.install",
+      "action": "apk:install",
       "args": {
         "package": "nginx"
       }
