@@ -9,6 +9,8 @@ if [ -z "${BASH_VERSION:-}" ] || [ "${BASH_VERSINFO[0]:-1}" -lt 4 ]; then
 	exit 1
 fi
 
+set -euo pipefail
+
 [[ -z ${YANA_TITLE:-} ]] && builtin readonly YANA_TITLE='YANA - Yet Another Node Automator (Bash)'
 [[ -z ${YANA_VERSION:-} ]] && builtin readonly YANA_VERSION='YANAVERSIONPLACEHOLDER'
 
@@ -58,8 +60,22 @@ _yana_usage() {
 log() {
 	builtin local _level="${1:-${level:-info}}"
 	builtin local _message="${2:-${message:-}}"
-	builtin local _logMessage
-	_logMessage="$(date -u +'%Y-%m-%dT%H:%M:%SZ')\t${_level^^}\t${_message}"
+	builtin local _logMessage _color_code='' _reset_code=''
+	if [[ -t 1 || -t 2 ]]; then
+		case "${_level,,}" in
+		trace) _color_code='\033[0;30m' ;;   # Gray
+		debug) _color_code='\033[0;36m' ;;   # Cyan
+		info) _color_code='\033[0;32m' ;;    # Green
+		warning) _color_code='\033[0;33m' ;; # Yellow
+		error) _color_code='\033[0;31m' ;;   # Red
+		fatal) _color_code='\033[1;31m' ;;   # Bold Red
+		*) _color_code='\033[0m' ;;          # Default
+		esac
+		_reset_code='\033[0m'
+	fi
+
+	_logMessage="${_color_code}$(date -u +'%Y-%m-%dT%H:%M:%SZ')\t${_level^^}\t${_message}${_reset_code}"
+
 	builtin echo -e "$_logMessage" >&2
 	if [[ -n $YANA_LOGFILE ]]; then
 		builtin echo -e "${_logMessage}" >>"$YANA_LOGFILE" || throw "Failed to write to log file '$YANA_LOGFILE'. Check permissions and available disk space."
@@ -72,7 +88,7 @@ throw() {
 	builtin local _message="${1:-${message:-}}"
 	builtin local _rc="${2:-${rc:-$ERR_GENERAL}}"
 	log fatal "$_message"
-	if [[ -n $YANA_TRACE ]]; then
+	if [[ ${YANA_TRACE:-false} == true ]]; then
 		set +x
 		log trace "Stack trace:"
 		builtin local _frame=0 _trace
@@ -172,7 +188,7 @@ _yana_load_step() {
 		_yana_step_arg_key="${_yana_step_arg%%=*}"
 		_yana_step_arg_val=$(builtin echo "${_yana_step_arg#*=}" | base64 -d)
 		#shellcheck disable=SC2034
-		YANA_ARGS["$_yana_step_arg_key"]="$_yana_step_arg_val"
+		YANA_ARGS["$_yana_step_arg_key"]=$(_yana_resolve_vars "$_yana_step_arg_val")
 	done < <(builtin echo "$_yana_step_json" | jq -r '(.args | objects) // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]')
 
 	# _yana_step_args=$(builtin echo "$_yana_step_json" | jq -r '(.args | objects) // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]')
@@ -189,7 +205,7 @@ _yana_apply_step() {
 	# shellcheck disable=SC2034
 	builtin local -A YANA_STEP YANA_ARGS
 	_yana_load_step "$@"
-	_yana_load_scripts "${YANA_STEP[action.script]}"
+	# _yana_load_scripts "${YANA_STEP[action.script]}"
 	builtin local _yana_step_apply_fn="yanaapply_${YANA_STEP[action.func]}"
 	builtin local _yana_step_verify_fn="yanaverify_${YANA_STEP[action.func]}"
 	builtin declare -F "$_yana_step_apply_fn" &>/dev/null || throw "Function '$_yana_step_apply_fn' not found." $ERR_NO_INPUT
@@ -216,7 +232,7 @@ _yana_apply_step() {
 	_yana_step_output=$(_yana_exec_fn "$_yana_step_apply_fn") || _rc=$?
 	if [[ $_rc -eq 0 ]]; then
 		log info "  - [APPLIED] ${YANA_STEP[name]} (changes applied)"
-		[[ -n "${YANA_STEP[id]}" ]] && YANA_OUTPUTS["${YANA_STEP[id]}"]="${_yana_step_output:-}"
+		[[ -n ${YANA_STEP[id]} ]] && YANA_OUTPUTS["${YANA_STEP[id]}"]="${_yana_step_output:-}"
 	else
 		log error "  - [FAILED] ${YANA_STEP[name]} (failed to apply changes, return code: $_rc)"
 		return $_rc
@@ -231,7 +247,6 @@ _yana_apply_step() {
 		fi
 	fi
 }
-
 _yana_verify_step() {
 	# shellcheck disable=SC2034
 	builtin local -A YANA_STEP YANA_ARGS
@@ -242,8 +257,11 @@ _yana_verify_step() {
 		return 0
 	}
 	log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if state is compliant)"
-	if _yana_exec_fn "$_yana_step_verify_fn"; then
+	builtin local _rc=0 _yana_step_output
+	_yana_step_output=$(_yana_exec_fn "$_yana_step_verify_fn") || _rc=$?
+	if [[ $_rc -eq 0 ]]; then
 		log info "  - [COMPLIANT] ${YANA_STEP[name]} (state is compliant)"
+		[[ -n ${YANA_STEP[id]} ]] && YANA_OUTPUTS["${YANA_STEP[id]}"]="${_yana_step_output:-}"
 	else
 		log info "  - [NON-COMPLIANT] ${YANA_STEP[name]} (state is not compliant)"
 		return 1
@@ -274,7 +292,6 @@ _yana_read_spec_file() {
 		YANA_PARAMS["$_yana_spec_param_key"]="$_yana_spec_param_value"
 	done < <(jq -r '(.params | objects) // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]' "$_yana_spec_file")
 
-
 	# _yana_spec_params_raw=$(jq -r '.params // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]' "$_yana_spec_file")
 	# for _yana_spec_param in $_yana_spec_params_raw; do
 	# 	_yana_spec_param_key="${_yana_spec_param%%=*}"
@@ -294,8 +311,24 @@ _yana_mode_fetch() {
 # Verifies the YANA Module from the specified source (local path or URL) without making any changes.
 _yana_mode_verify() {
 	[[ -z $YANA_SOURCE ]] && throw 'No source specified'
+	_yana_mode_fetch
 	log info "Verifying YANA Module: $YANA_SOURCE"
 	# Implement the verify logic here
+	# Assume YANA_SOURCE is a local path for now. _yana_mode_fetch will handle fetching from URL later.
+	builtin local -A YANA_SPEC YANA_STEPS YANA_PARAMS YANA_OUTPUTS
+	_yana_read_spec_file
+
+	#shellcheck disable=SC2086
+	_yana_check_prerequisites ${YANA_SPEC[requires]}
+
+	YANA_OUTPUTS=()
+	builtin local _yana_step
+	# Execute steps
+	for _yana_step in ${YANA_SPEC[steps]}; do
+		_yana_verify_step "$_yana_step" || throw "Step execution failed." $?
+	done
+	log info "YANA Module applied successfully: $YANA_SOURCE:$YANA_ROUTINE"
+
 }
 # Applies the YANA Module from the specified source (local path or URL).
 _yana_mode_apply() {
