@@ -1,6 +1,6 @@
 yanaverify_create() {
 	local path="${YANA_ARGS[path]:-}"
-	[[ -z $path ]] && throw "Error: 'path' argument is required for file.create action" $ERR_MISUSE
+	[[ -z $path ]] && throw "Error: 'path' argument is required for file:create action" $ERR_MISUSE
 
 	# Return 1 if file not exists
 	[[ -f $path ]] || return 1
@@ -35,7 +35,7 @@ yanaverify_write() {
 	local path="${YANA_ARGS[path]:-}"
 	local content="${YANA_ARGS[content]:-}"
 	local owner="${YANA_ARGS[owner]:-}"
-	[[ -z $path ]] && throw "Error: 'path' argument is required for file.write action" $ERR_MISUSE
+	[[ -z $path ]] && throw "Error: 'path' argument is required for file:write action" $ERR_MISUSE
 
 	# Return 0 if file exists and matches content
 	[[ -f $path ]] || return 1
@@ -51,10 +51,10 @@ yanaverify_write() {
 	fi
 }
 
-yanaapply_read() {
+yanavar_read() {
 	local path="${YANA_ARGS[path]:-}"
-	[[ -z $path ]] && throw "Error: 'path' argument is required for file.read action" $ERR_MISUSE
-	[[ -d $path ]] && throw "Error: '$path' is a directory, expected a file for file.read action" $ERR_DATA_FORMAT
-	[[ -f $path ]] || throw "Error: File '$path' does not exist for file.read action" $ERR_NO_INPUT
+	[[ -z $path ]] && throw "'path' argument is required" $ERR_MISUSE
+	[[ -d $path ]] && throw "'$path' is a directory, expected a file" $ERR_DATA_FORMAT
+	[[ -f $path ]] || throw "File '$path' does not exist" $ERR_NO_INPUT
 	cat "$path"
 }

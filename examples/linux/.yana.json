@@ -9,6 +9,25 @@
     "marker_file": "${param:app_dir}/status.txt",
     "service_port": "8080"
   },
+  "vars": {
+    "marker_file_content": {
+      "fn": "read",
+      "args": {
+        "path": "${param:marker_file}"
+      }
+    },
+    "user": {
+      "fn": "user"
+    },
+    "group": {
+      "fn": "group"
+    },
+    "owner": "${var:user}:${var:group}",
+    "i": 1,
+    "a": [1, 2, 3],
+    "b": true,
+    "s": "s"
+  },
   "steps": [
     {
       "name": "Create marker file",
@@ -16,15 +35,7 @@
       "args": {
         "path": "${param:marker_file}",
         "content": "STATUS=ACTIVE",
-        "owner": "${var:user}"
-      }
-    },
-    {
-      "id": "read_marker_file",
-      "name": "Read marker file",
-      "action": "file:read",
-      "args": {
-        "path": "${param:marker_file}"
+        "owner": "${var:owner}"
       }
     },
     {
@@ -32,8 +43,8 @@
       "action": "file:write",
       "args": {
         "path": "${param:config_file}",
-        "content": "${output:read_marker_file}\nPORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nUSER=${env:USER}",
-        "owner": "${var:user}"
+        "content": "marker_file=${var:marker_file_content}\nPORT=${param:service_port}\nUSER=${var:user}",
+        "owner": "${var:owner}"
       }
     }
   ]
