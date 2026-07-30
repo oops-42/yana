@@ -31,7 +31,7 @@
       "action": "file:write",
       "args": {
         "path": "${param:config_file}",
-        "content": "${output:read_marker_file}\nPORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nUSER=${env:USER}",
+        "content": "${output:read_marker_file}\nPORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nHOME=${env:HOME}",
         "owner": "${var:user}:${var:group}"
       }
     },

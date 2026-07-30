@@ -3,7 +3,8 @@
 yanavar_uid() { id -u; }
 yanavar_gid() { id -g; }
 yanavar_user() { id -un; }
-yanavar_group() { id -gn; }
+yanavar_group() {
+	id -gn; }
 yanavar_groups() { id -Gn; }
 yanavar_hostname() { hostname; }
 yanavar_os() { uname -s; }

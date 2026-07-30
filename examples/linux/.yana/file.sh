@@ -1,14 +1,14 @@
 yanaverify_create() {
-	local path="${YANA_ARGS[path]:-}"
+	local path="${YANA_ARGS['path']:-}"
 	[[ -z $path ]] && throw "Error: 'path' argument is required for file:create action" $ERR_MISUSE
 
 	# Return 1 if file not exists
 	[[ -f $path ]] || return 1
 }
 yanaapply_create() {
-	local path="${YANA_ARGS[path]:-}"
-	local content="${YANA_ARGS[content]:-}"
-	local owner="${YANA_ARGS[owner]:-}"
+	local path="${YANA_ARGS['path']:-}"
+	local content="${YANA_ARGS['content']:-}"
+	local owner="${YANA_ARGS['owner']:-}"
 
 	mkdir -p "$(dirname "$path")"
 	echo -n "$content" >"$path"

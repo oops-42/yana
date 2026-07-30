@@ -11,16 +11,17 @@
   },
   "vars": {
     "marker_file_content": {
-      "fn": "read",
+      "fn": "file:read",
       "args": {
         "path": "${param:marker_file}"
       }
     },
     "user": {
-      "fn": "user"
+      "fn": "user",
+      "cached": true
     },
     "group": {
-      "fn": "group"
+      "fn": ":group"
     },
     "owner": "${var:user}:${var:group}",
     "i": 1,
