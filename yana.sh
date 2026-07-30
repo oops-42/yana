@@ -9,10 +9,12 @@ if [ -z "${BASH_VERSION:-}" ] || [ "${BASH_VERSINFO[0]:-1}" -lt 4 ]; then
 	exit 1
 fi
 
-YANA_SOURCE='examples/linux'
-YANA_MODE='apply'
+# YANA_SOURCE='examples/linux'
+# YANA_MODE='apply'
+# YANA_TRACE=true
 
 set -eEuo pipefail
+FUNCNEST=100
 
 [[ -z ${YANA_TITLE:-} ]] && builtin readonly YANA_TITLE='YANA - Yet Another Node Automator (Bash)'
 [[ -z ${YANA_VERSION:-} ]] && builtin readonly YANA_VERSION='YANAVERSIONPLACEHOLDER'
@@ -58,7 +60,7 @@ _yana_usage() {
 	builtin echo "  -logfile <file>            Log file path. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file."
 }
 
-# Logs a message to the stderr.
+# Logs a colored message to the stderr.
 # Takes care of logging to a file if $YANA_LOGFILE is specified.
 log() {
 	builtin local _level="${1:-${level:-info}}"
@@ -110,12 +112,93 @@ _yana_check_prerequisites() {
 	builtin local cmd
 	for cmd in "$@"; do builtin command -v "$cmd" &>/dev/null || throw "Prerequisite tool '$cmd' is missing on host node." $ERR_MISUSE; done
 }
+_yana_execute_fn() {
+	builtin local _yana_fn_prefix="$1" _yana_fn="$2"
+	builtin local -n _yana_output_ref="$3"
+	builtin local -n _yana_args_ref="$4"
+	log trace "_yana_execute_fn '$_yana_fn' with arguments: ${_yana_args_ref[*]}"
+
+	# Parse function name. Format: `[module/]script:function`
+	builtin local _yana_fn_module="${_yana_fn%%/*}" _yana_script_fn="${_yana_fn#*/}"
+	[[ $_yana_fn_module == "$_yana_fn" ]] && _yana_fn_module='' # Default module if no module specified
+	[[ $_yana_fn_module =~ ^[a-zA-Z0-9_\.-]*$ ]] || throw "Step action module shall be empty or alphanumeric. Got: '$_yana_fn_module'" $ERR_NO_INPUT
+	builtin local _yana_fn_script="${_yana_script_fn%%:*}"
+	[[ $_yana_fn_script =~ ^[a-zA-Z0-9_\.-]*$ ]] || throw "Step action script shall be alphanumeric. Got: '$_yana_fn_script'" $ERR_NO_INPUT
+	builtin local _yana_fn_func="${_yana_script_fn#*:}"
+	[[ $_yana_fn_func =~ ^[a-zA-Z0-9_\.-]+$ ]] || throw "Step action function shall be alphanumeric. Got: '$_yana_fn_func'" $ERR_NO_INPUT
+	[[ $_yana_fn_script == "$_yana_fn_func" ]] && _yana_fn_script='' # Default script if no script specified
+
+	log trace "Parsed function name: module='$_yana_fn_module', script='$_yana_fn_script', function='$_yana_fn_func'"
+	builtin local _rc=0
+	_yana_output_ref=$(
+		# Unset any previously defined private _yana_ functions and variables to avoid conflicts
+		for _fn in $(builtin declare -F | awk '$3 ~ /^_yana_/ {print $3}'); do unset -f "$_fn"; done
+		# for _var in $(builtin declare -p | awk -F '[ =]' '$3 ~ /^_yana_/ {print $3}'); do builtin unset -v "$_var"; done
+		# builtin unset -v _fn _var
+
+		# Load the common scripts for the module if they exist
+		builtin local -a _yana_include_scripts
+		builtin readarray -t _yana_include_scripts < <(ls -1 "$YANA_SOURCE/.yana"/*/.sh "$YANA_SOURCE/.yana/.sh" 2>/dev/null || true)
+		[[ -n $_yana_fn_script ]] && _yana_include_scripts+=("$YANA_SOURCE/.yana/${_yana_fn_script}.sh")
+		builtin local _yana_script_path
+		for _yana_script_path in "${_yana_include_scripts[@]}"; do
+			log trace "Sourcing script '$_yana_script_path'"
+			# shellcheck source=/dev/null
+			builtin source "$_yana_script_path" >&2 || throw "Failed to source script '$_yana_script_path'." $?
+		done
+		log trace "Executing function '${_yana_fn_prefix}_${_yana_fn_func}' from script '$_yana_fn_script' in module '$_yana_fn_module' with arguments: ${_yana_args_ref[*]}"
+		#shellcheck disable=SC2178
+		local -n YANA_ARGS=_yana_args_ref
+		"${_yana_fn_prefix}_${_yana_fn_func}"
+	) || _rc=$?
+	builtin return $_rc
+}
+
+_yana_expand_var() {
+	builtin local _yana_var_name="${1:-}"
+	builtin local -n _output_ref="${2:-}"
+	builtin local -n _yana_vars_ref="${3:-YANA_VARS}"
+	[[ -n $_yana_var_name ]] || throw "No variable name provided to _yana_expand_var." $ERR_NO_INPUT
+	[[ -v _yana_vars_ref[$_yana_var_name] ]] || throw "Variable '$_yana_var_name' is not defined in the YANA spec." $ERR_NO_INPUT
+	builtin local _yana_var_val="${_yana_vars_ref[$_yana_var_name]}"
+	log trace "Expanding variable '$_yana_var_name' with value: $_yana_var_val"
+	if [[ $_yana_var_val == '"'*'"' ]]; then
+		_output_ref=$(jq -r '.' <<<"$_yana_var_val") || throw "Failed to parse JSON string for variable '$_yana_var_name'. Ensure it is valid JSON." $ERR_DATA_FORMAT
+		log trace "Variable '$_yana_var_name' resolved to JSON string: $_output_ref"
+		return 0
+	fi
+	if [[ $_yana_var_val != '{'*'}' ]]; then
+		_output_ref="$_yana_var_val"
+		log trace "Variable '$_yana_var_name' resolved to non-object value: $_output_ref"
+		return 0
+	fi
+	_output_ref=''
+	log trace "Variable '$_yana_var_name' is a JSON object. Attempting to resolve as a function call."
+
+	builtin local _yana_var_fn _yana_var_args_raw _yana_var_cached
+	builtin local -a _yana_var_args_array
+	builtin local -A _yana_var_args
+	# If the value is a JSON object, parse it and extract the function and arguments
+	_yana_var_fn=$(jq -r '.fn // empty' <<<"$_yana_var_val") || throw "Failed to parse JSON for variable '$_yana_var_name'. Ensure it is valid JSON." $ERR_DATA_FORMAT
+	[[ -z $_yana_var_fn ]] && throw "Variable '$_yana_var_name' is defined as an object but has an empty 'fn' value. Ensure it is properly defined in the YANA spec." $ERR_DATA_FORMAT
+	_yana_var_args_raw=$(jq -r '(.args | objects) // {} | to_entries | map("\(.key):\(.value|@text|@base64)") | .[]' <<<"$_yana_var_val") || throw "Failed to parse JSON for variable '$_yana_var_name'. Ensure it is valid JSON." $ERR_DATA_FORMAT
+	_yana_resolve_args "$_yana_var_args_raw" _yana_var_args || throw "Failed to resolve variable placeholders in argument '$k' with value '$v'." $ERR_DATA_FORMAT
+	_yana_var_cached=$(jq -r '.cached // false' <<<"$_yana_var_val") || throw "Failed to parse JSON for variable '$_yana_var_name'. Ensure it is valid JSON." $ERR_DATA_FORMAT
+	builtin local _rc=0 _yana_var_result
+	_yana_execute_fn 'yanavar' "$_yana_var_fn" _output_ref _yana_var_args || _rc=$?
+	[[ $_rc -ne 0 ]] && throw "Function 'yanavar_$_yana_var_fn' failed with return code: $_rc" $_rc
+	log trace "Function 'yanavar_$_yana_var_fn' executed with return code: $_rc and output: $_output_ref"
+	if [[ $_yana_var_cached == true ]]; then
+		_yana_vars_ref["$_yana_var_name"]=$(jq -R '.' <<<"$_output_ref") || throw "Failed to cache resolved value for variable '$_yana_var_name' as JSON string." $ERR_DATA_FORMAT
+		log trace "Cached resolved value for variable '$_yana_var_name' as JSON string: ${_yana_vars_ref["$_yana_var_name"]}"
+	fi
+}
 # Resolves variable placeholders in the input string using the provided context (param/var).
-_yana_resolve_vars() {
+_yana_expand_string() {
 	builtin local _input="${1:-$(cat -)}"
+	builtin local -n _output_ref="${2:-}"
 	log trace "Resolving variables in input: $_input"
-	builtin local _resolve_iters=0 _max_iters=${max_iterations:-50}
-	[[ ${#BASH_SOURCE[@]} -gt _max_iters ]] && throw "Variable resolution exceeded $_max_iters iterations (possible circular reference)." $ERR_DATA_FORMAT
+	builtin local _resolve_iters=0 _max_iters=${FUNCNEST:-50} _value=''
 	while [[ $_input =~ \$\{(param|var):([a-zA-Z0-9_]+)\} ]]; do
 		builtin local _var="${BASH_REMATCH[0]}" _ctx="${BASH_REMATCH[1]}" _key="${BASH_REMATCH[2]}" _value=''
 		log trace "Resolving variable '$_var' with context '$_ctx' and key '$_key'"
@@ -123,40 +206,7 @@ _yana_resolve_vars() {
 		[[ $_resolve_iters -gt $_max_iters ]] && throw "Variable resolution exceeded $_max_iters iterations (possible circular reference)." $ERR_DATA_FORMAT
 		case "$_ctx" in
 		param) _value="${YANA_PARAMS[$_key]:-}" ;;
-		var)
-			# check if the entry exists in YANA_VARS associative array
-			[[ -v YANA_VARS[$_key] ]] || throw "Variable '$_var' is not defined in the YANA spec." $ERR_NO_INPUT
-			_value="${YANA_VARS[$_key]:-}"
-			[[ -z $_value ]] && throw "Variable '$_var' is defined but has an empty value. Ensure that the variable is properly defined in the YANA spec." $ERR_NO_INPUT
-			if [[ $_value == '"'*'"' ]]; then
-				_value=$(jq -r '.' <<<"$_value") || throw "Failed to parse JSON string for variable '$_var'. Ensure it is valid JSON." $ERR_DATA_FORMAT
-				log trace "Variable '$_var' resolved to JSON string: $_value"
-			elif [[ $_value == '{'*'}' ]]; then
-				builtin local _yana_var_fn _yana_var_arg _yana_var_cached
-				builtin local -a _yana_var_args
-				# If the value is a JSON object, parse it and extract the function and arguments
-				_yana_var_fn=$(jq -r '.fn // empty' <<<"$_value") || throw "Failed to parse JSON for variable '$_var'. Ensure it is valid JSON." $ERR_DATA_FORMAT
-				[[ -z $_yana_var_fn ]] && throw "Variable '$_var' is defined as an object but has an empty 'fn' value. Ensure it is properly defined in the YANA spec." $ERR_DATA_FORMAT
-				builtin readarray -t _yana_var_args < <(jq -r '.args // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]' <<<"$_value") || throw "Failed to parse JSON for variable '$_var'. Ensure it is valid JSON." $ERR_DATA_FORMAT
-				# _yana_var_cached=$(jq -r '.cached // false' <<<"$_value") || throw "Failed to parse JSON for variable '$_var'. Ensure it is valid JSON." $ERR_DATA_FORMAT
-				builtin local _rc=0 _yana_var_result
-				_value=$(
-					# shellcheck disable=SC2030
-					YANA_ARGS=()
-					for a in "${_yana_var_args[@]}"; do
-						builtin local k="${a%%=*}"
-						builtin local v="${a#*=}"
-						YANA_ARGS["$k"]="$(echo "$v" | base64 -d | _yana_resolve_vars)" || throw "Failed to resolve variable placeholders in argument '$k' with value '$v'." $ERR_DATA_FORMAT
-					done
-					_yana_exec_fn "yanavar_$_yana_var_fn"
-				) || _rc=$?
-				[[ $_rc -ne 0 ]] && throw "Function 'yanavar_$_yana_var_fn' failed with return code: $_rc" $_rc
-				# [[ "$_yana_var_cached" == true ]] && {
-				# 	log trace "Caching resolved value for variable '$_var' as JSON string: $_value"
-				# 	YANA_VARS["$_key"]=$(jq -R -s <<<"$_value") # Cache the resolved value as a JSON string in YANA_VARS
-				# }
-			fi
-			;;
+		var) _yana_expand_var "$_key" _value || throw "Failed to expand variable '$_var'." $ERR_DATA_FORMAT ;;
 		*) throw "Unknown variable type '$_ctx' in variable reference '$_var'. This should never happen. Please report this as a bug." $ERR_GENERAL ;;
 		esac
 		[[ -z $_value ]] && log warning "Variable '$_var' resolved to an empty value. Ensure that the variable is defined and has a non-empty value."
@@ -164,136 +214,94 @@ _yana_resolve_vars() {
 		_input="${_input//$_var/$_value}"
 		log trace "Intermediate resolved input: $_input"
 	done
-	builtin echo "$_input"
+	_output_ref="$_input"
 }
-
-_yana_exec_fn() {
-	builtin local YANA_COMMAND="$1"
-	# shift
-	# local _yana_args=("$@") # key=base64_value
-	log debug "Executing function '$YANA_COMMAND' with arguments: $(declare -p YANA_ARGS)"
-	builtin local _rc=0
-	(
-		for fn in $(builtin declare -F | awk '$3 ~ /^_yana_/ {print $3}'); do unset -f "$fn"; done
-		for v in $(builtin declare -p | awk -F '[ =]' '$3 ~ /^_yana_/ {print $3}'); do builtin unset -v "$v"; done
-		builtin unset -v fn v
-		builtin declare -F "$YANA_COMMAND" &>/dev/null || throw "Function '$YANA_COMMAND' not found." $ERR_MISUSE
-		"$YANA_COMMAND" # "${YANA_ARGV[@]}"
-	) || _rc=$?
-	[[ $_rc -gt 1 ]] && throw "Function '$YANA_COMMAND' failed with return code: $_rc" $_rc
-	builtin return $_rc
+_yana_resolve_args() {
+	builtin local _yana_args="$1"
+	builtin local -n _yana_args_ref="${2:-YANA_ARGS}"
+	builtin local -a _yana_args_array
+	builtin readarray -t _yana_args_array <<<"$_yana_args"
+	_yana_args_ref=()
+	builtin local _arg _key _value _result
+	for _arg in "${_yana_args_array[@]}"; do
+		[[ -n $_arg ]] || continue
+		_key="${_arg%%:*}"
+		_value="${_arg#*:}"
+		_yana_expand_string "$(base64 -d <<<"$_value")" _result || throw "Failed to resolve variable placeholders in argument '$_key' with value '$_value'." $ERR_DATA_FORMAT
+		_yana_args_ref["$_key"]="$_result"
+	done
 }
-
 _yana_load_step() {
 	builtin local _yana_step_b64="${1:-}"
+	builtin local -n _yana_step_ref="${2:-YANA_STEP}"
+	builtin local _yana_step_json
 	[[ -n $_yana_step_b64 ]] || throw "No step data provided to _yana_load_step." $ERR_NO_INPUT
 	_yana_step_json=$(builtin echo "$_yana_step_b64" | base64 -d) || throw "Failed to decode step data. Ensure it is valid base64." $ERR_NO_INPUT
 
-	YANA_STEP=()
-	YANA_STEP[id]=$(builtin echo "$_yana_step_json" | jq -r '.id // empty')
-	[[ -n ${YANA_STEP[id]} && ! ${YANA_STEP[id]} =~ ^[a-zA-Z0-9_]+$ ]] && throw "Step ID shall be empty or alphanumeric. Got: '${YANA_STEP[id]}'" $ERR_NO_INPUT
-	YANA_STEP[name]=$(builtin echo "$_yana_step_json" | jq -r '.name // error') || throw "Step name is missing in step data." $ERR_NO_INPUT
-	YANA_STEP[action]=$(builtin echo "$_yana_step_json" | jq -r '.action // error' 2>/dev/null) || throw "Step action is missing in step data." $ERR_NO_INPUT
-	# Action format: `[module/]script:function`
-	YANA_STEP[action.module]="${YANA_STEP[action]%%/*}"
-	[[ ${YANA_STEP[action.module]} == "${YANA_STEP[action]}" ]] && YANA_STEP[action.module]='' # Default module if no module specified
-	[[ ${YANA_STEP[action.module]} =~ ^[a-zA-Z0-9_\.-]*$ ]] || throw "Step action module shall be empty or alphanumeric. Got: '${YANA_STEP[action.module]}'" $ERR_NO_INPUT
-	builtin local _yana_step_action_script_fn="${YANA_STEP[action]#*/}"
-	YANA_STEP[action.script]="${_yana_step_action_script_fn%%:*}"
-	[[ ${YANA_STEP[action.script]} =~ ^[a-zA-Z0-9_\.-]+$ ]] || throw "Step action script shall be alphanumeric. Got: '${YANA_STEP[action.script]}'" $ERR_NO_INPUT
-	YANA_STEP[action.func]="${_yana_step_action_script_fn#*:}"
-	[[ ${YANA_STEP[action.func]} =~ ^[a-zA-Z0-9_\.-]+$ ]] || throw "Step action function shall be alphanumeric. Got: '${YANA_STEP[action.func]}'" $ERR_NO_INPUT
-
-	# YANA_STEP[args]=$(jq -r '(.args | objects) // {} | to_entries | map("\(.key):\(.value|@text|@base64)") | .[]' <<<"$_yana_step_json")
-
-	# Load the common scripts for the module if they exist
-	builtin local _yana_step_common_scripts _yana_step_script_path
-	_yana_step_common_scripts=$(ls -1 "$YANA_SOURCE/.yana"/*/.sh "$YANA_SOURCE/.yana/.sh" 2>/dev/null || true)
-	builtin local _ifs="$IFS"
-	IFS=$'\n'
-	for _yana_step_script_path in $_yana_step_common_scripts; do
-		IFS="$_ifs"
-		# shellcheck source=/dev/null
-		builtin source "$_yana_step_script_path" || throw "Failed to source script '$_yana_step_script_path'." $?
-	done
-	IFS="$_ifs"
-	# Load the specific script for the step
-	_yana_step_script_path="$YANA_SOURCE/.yana/${YANA_STEP[action]%%:*}.sh"
-	[[ -f $_yana_step_script_path ]] || throw "Script '$_yana_step_script_path' not found." $ERR_NO_INPUT
-	# shellcheck source=/dev/null
-	builtin source "$_yana_step_script_path" || throw "Failed to source script '$_yana_step_script_path'." $?
-
-	# Load and evaluate the step arguments into the associative array YANA_ARGS
-	builtin local _yana_step_arg _yana_step_arg_key _yana_step_arg_val
-	YANA_ARGS=()
-	while IFS= builtin read -r _yana_step_arg; do
-		[[ -n $_yana_step_arg ]] || continue
-		_yana_step_arg_key="${_yana_step_arg%%=*}"
-		_yana_step_arg_val=$(builtin echo "${_yana_step_arg#*=}" | base64 -d)
-		#shellcheck disable=SC2034
-		YANA_ARGS["$_yana_step_arg_key"]=$(_yana_resolve_vars "$_yana_step_arg_val") || throw "Failed to resolve variable placeholders in argument '$_yana_step_arg_key' with value '$_yana_step_arg_val'." $ERR_DATA_FORMAT
-	done < <(builtin echo "$_yana_step_json" | jq -r '(.args | objects) // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]')
+	_yana_step_ref=()
+	_yana_step_ref['id']=$(jq -r '.id // empty' <<<"$_yana_step_json")
+	[[ -n ${_yana_step_ref['id']} && ! ${_yana_step_ref['id']} =~ ^[a-zA-Z0-9_]+$ ]] && throw "Step ID shall be empty or alphanumeric. Got: '${_yana_step_ref['id']}'" $ERR_NO_INPUT
+	_yana_step_ref['name']=$(jq -r '.name // error' <<<"$_yana_step_json") || throw "Step name is missing in step data." $ERR_NO_INPUT
+	_yana_step_ref['action']=$(jq -r '.action // error' 2>/dev/null <<<"$_yana_step_json") || throw "Step action is missing in step data." $ERR_NO_INPUT
+	_yana_step_ref['args']=$(jq -r '(.args | objects) // {} | to_entries | map("\(.key):\(.value|@text|@base64)") | .[]' <<<"$_yana_step_json")
 }
 _yana_apply_step() {
 	# shellcheck disable=SC2034
-	builtin local -A YANA_STEP YANA_ARGS
-	_yana_load_step "$@"
-	builtin local -a _yana_step_args
-	builtin local _yana_step_apply_fn="yanaapply_${YANA_STEP[action.func]}"
-	builtin local _yana_step_verify_fn="yanaverify_${YANA_STEP[action.func]}"
-	builtin declare -F "$_yana_step_apply_fn" &>/dev/null || throw "Function '$_yana_step_apply_fn' not found." $ERR_NO_INPUT
-	builtin declare -F "$_yana_step_verify_fn" &>/dev/null || {
-		log warning "Function '$_yana_step_verify_fn' not found. Verification will be skipped for this step."
-		_yana_step_verify_fn=''
-	}
-	builtin local _rc=0 _yana_step_output
-	if [[ -n $_yana_step_verify_fn ]]; then
-		log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if changes are needed)"
-		_yana_step_output=$(_yana_exec_fn "$_yana_step_verify_fn") || _rc=$?
-		if [[ $_rc -eq 0 ]]; then # compliant, no changes needed
-			log info "  - [COMPLIANT] ${YANA_STEP[name]} (no changes needed)"
-			return 0
-		elif [[ $_rc -eq 1 ]]; then # non-compliant, changes needed
-			log error "  - [NON-COMPLIANT] ${YANA_STEP[name]} (changes needed)"
-		else # argument/syntax/other errors
-			log error "  - [FAILED] ${YANA_STEP[name]} (failed to verify compliance, return code: $_rc)"
-			return $_rc
-		fi
+	builtin local -A YANA_STEP #YANA_ARGS
+	_yana_load_step "$@" YANA_STEP
+	builtin local _rc=0 _yana_step_output _yana_skip_verify=false
+	builtin local -A _yana_step_args
+	_yana_resolve_args "${YANA_STEP['args']}" _yana_step_args || throw "Failed to resolve arguments for step '${YANA_STEP[name]}'." $ERR_DATA_FORMAT
+	log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if changes are needed)"
+	_yana_execute_fn 'yanaverify' "${YANA_STEP['action']}" _yana_step_output _yana_step_args || _rc=$?
+	if [[ $_rc -eq 0 ]]; then # compliant, no changes needed
+		log info "  - [COMPLIANT] ${YANA_STEP[name]} (no changes needed)"
+		return 0
+	elif [[ $_rc -eq 1 ]]; then # non-compliant, changes needed
+		log warning "  - [NON-COMPLIANT] ${YANA_STEP[name]} (changes needed)"
+	elif [[ $_rc -eq 127 ]]; then # function not found
+		log warning "  - [SKIPPED] ${YANA_STEP[name]} (verification function not found)"
+		_yana_skip_verify=true
+	else # argument/syntax/other errors
+		log error "  - [FAILED] ${YANA_STEP[name]} (failed to verify compliance, return code: $_rc)"
+		return $_rc
 	fi
 	log info "  - [APPLYING] ${YANA_STEP[name]} (making changes)"
 	_rc=0
-	_yana_step_output=$(_yana_exec_fn "$_yana_step_apply_fn") || _rc=$?
+	_yana_execute_fn 'yanaapply' "${YANA_STEP['action']}" _yana_step_output _yana_step_args || _rc=$?
 	if [[ $_rc -eq 0 ]]; then
 		log info "  - [APPLIED] ${YANA_STEP[name]} (changes applied)"
 	else
 		log error "  - [FAILED] ${YANA_STEP[name]} (failed to apply changes, return code: $_rc)"
 		return $_rc
 	fi
-	if [[ -n $_yana_step_verify_fn ]]; then
-		log info "  - [POST-VERIFYING] ${YANA_STEP[name]} (checking if changes stuck)"
-		if _yana_exec_fn "$_yana_step_verify_fn"; then
-			log info "  - [POST-COMPLIANT] ${YANA_STEP[name]} (changes verified)"
-		else
-			log error "  - [POST-NON-COMPLIANT] ${YANA_STEP[name]} (changes did not stick)"
-			return 1
-		fi
+	[[ $_yana_skip_verify == true ]] && return 0
+	log info "  - [POST-VERIFYING] ${YANA_STEP[name]} (checking if changes stuck)"
+	if _yana_execute_fn 'yanaverify' "${YANA_STEP['action']}" _yana_step_output _yana_step_args; then
+		log info "  - [POST-COMPLIANT] ${YANA_STEP[name]} (changes verified)"
+	else
+		log error "  - [POST-NON-COMPLIANT] ${YANA_STEP[name]} (changes did not stick)"
+		return 1
 	fi
 }
 _yana_verify_step() {
 	# shellcheck disable=SC2034
-	builtin local -A YANA_STEP YANA_ARGS
+	builtin local -A YANA_STEP _yana_step_args
 	_yana_load_step "$@"
-	builtin local _yana_step_verify_fn="yanaverify_${YANA_STEP[action.func]}"
-	builtin declare -F "$_yana_step_verify_fn" &>/dev/null || {
+	_yana_resolve_args "${YANA_STEP['args']}" _yana_step_args || throw "Failed to resolve arguments for step '${YANA_STEP[name]}'." $ERR_DATA_FORMAT
+
+	log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if state is compliant)"
+	builtin local _rc=0
+	_yana_execute_fn 'yanaverify' "${YANA_STEP['action']}" _yana_step_output _yana_step_args || _rc=$?
+	if [[ $_rc -eq 0 ]]; then
+		log info "  - [COMPLIANT] ${YANA_STEP[name]} (state is compliant)"
+		return 0
+	elif [[ $_rc -eq 127 ]]; then
 		log warning "  - [SKIPPED] ${YANA_STEP[name]} (verification function not found)"
 		return 0
-	}
-	log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if state is compliant)"
-	if _yana_exec_fn "$_yana_step_verify_fn"; then
-		log info "  - [COMPLIANT] ${YANA_STEP[name]} (state is compliant)"
 	else
 		log error "  - [NON-COMPLIANT] ${YANA_STEP[name]} (state is not compliant)"
-		return 1
+		return $_rc
 	fi
 }
 # Reads and parses the YANA spec file for the specified routine.
@@ -315,20 +323,19 @@ _yana_read_spec_file() {
 	builtin local _yana_spec_params_raw _yana_spec_param _yana_spec_param_key _yana_spec_param_value _yana_spec_param_value_b64
 	while IFS= builtin read -r _yana_spec_param; do
 		[[ -n $_yana_spec_param ]] || continue
-		_yana_spec_param_key="${_yana_spec_param%%=*}"
-		_yana_spec_param_value=$(builtin echo "${_yana_spec_param#*=}" | base64 -d)
+		_yana_spec_param_key="${_yana_spec_param%%:*}"
+		_yana_spec_param_value=$(base64 -d <<<"${_yana_spec_param#*:}") || throw "Failed to decode base64 parameter value for key '$_yana_spec_param_key'." $ERR_DATA_FORMAT
 		YANA_PARAMS["$_yana_spec_param_key"]="$_yana_spec_param_value"
-	done < <(jq -r '(.params | objects) // {} | to_entries | map("\(.key)=\(.value|@text|@base64)") | .[]' "$_yana_spec_file")
+	done < <(jq -r '(.params | objects) // {} | to_entries | map("\(.key):\(.value|@text|@base64)") | .[]' "$_yana_spec_file")
 	YANA_VARS=()
 	# Extract variables into associative array
 	builtin local _yana_spec_vars_raw _yana_spec_var _yana_spec_var_key _yana_spec_var_value _yana_spec_var_value_b64
 	while IFS= builtin read -r _yana_spec_var; do
 		[[ -n $_yana_spec_var ]] || continue
-		_yana_spec_var_key="${_yana_spec_var%%=*}"
-		_yana_spec_var_value=$(builtin echo "${_yana_spec_var#*=}" | base64 -d)
+		_yana_spec_var_key="${_yana_spec_var%%:*}"
+		_yana_spec_var_value=$(base64 -d <<<"${_yana_spec_var#*:}") || throw "Failed to decode base64 variable value for key '$_yana_spec_var_key'." $ERR_DATA_FORMAT
 		YANA_VARS["$_yana_spec_var_key"]="$_yana_spec_var_value"
-	done < <(jq -r '(.vars | objects) // {} | to_entries | map("\(.key)=\(.value|@json|@base64)") | .[]' "$_yana_spec_file")
-
+	done < <(jq -r '(.vars | objects) // {} | to_entries | map("\(.key):\(.value|@json|@base64)") | .[]' "$_yana_spec_file")
 }
 # Outputs the version of YANA.
 _yana_mode_version() { builtin echo "$YANA_VERSION"; }
@@ -375,11 +382,14 @@ _yana_mode_apply() {
 	builtin local _yana_step
 	# Execute steps
 	for _yana_step in ${YANA_SPEC[steps]}; do
-		_yana_apply_step "$_yana_step" || throw "Step execution failed." $?
+		_yana_apply_step "$_yana_step" || {
+			log error "Step execution failed." $?
+			return $?
+		}
 	done
 	log info "YANA Module applied successfully: $YANA_SOURCE:$YANA_ROUTINE"
 }
-# Parse command-line arguments and set global variables accordingly.
+# Parses command-line arguments and sets global variables accordingly.
 _yana_parse_args() {
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
