@@ -31,59 +31,6 @@ function log([string]$Level, [string]$Message) {
   }
 }
 
-function Out-Colored {
-  # .SYNOPSIS
-  # 	Outputs colored text to the output stream.
-  # 	Takes care of logging to a file if $LogFile is specified.
-  # 	If $Quiet is specified, suppresses output.
-  # 	If $NoColor is specified, disables colored output.
-  param(
-    # The color of the text (e.g., 'Red', 'Green', 'Blue').
-    [string]$Color,
-    # The main message to display.
-    [string]$Message,
-    # Additional details to display (optional). Will be displayed in dimmed color.
-    [string]$MessageDetail = ''
-  )
-  if ($Message.Length -gt 0) { $Message = "$Message " }
-  if ($LogFile) {
-    $logMessage = "[$([datetime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))] ${Message}${MessageDetail}"
-    try {
-      Add-Content -Path $LogFile -Value $logMessage -Force -ErrorAction Stop
-    } catch {
-      Write-Warning "Failed to write to log file '$($LogFile)': $($_.Exception.Message)"
-    }
-  }
-  if ($Quiet) { return }
-  if ($NoColor) {
-    $message = "${Message}$MessageDetail"
-  } else {
-    $colorCode = switch ($Color) {
-      'Black' { 30 }
-      'Red' { 31 }
-      'Green' { 32 }
-      'Yellow' { 33 }
-      'Blue' { 34 }
-      'Magenta' { 35 }
-      'Cyan' { 36 }
-      'White' { 37 }
-      default { 0 } # Default to no color
-    }
-    $ansiEscape = [char]27
-    "${ansiEscape}[${colorCode}m${Message}${ansiEscape}[2m${MessageDetail}${ansiEscape}[0m"
-  }
-}
-function Out-ColoredStdout {
-  # .SYNOPSIS
-  # 	Outputs colored text to the standard output.
-  if ($local:output = Out-Colored @args) { [Console]::Out.WriteLine($local:output)	}
-}
-function Out-ColoredStderr {
-  # .SYNOPSIS
-  # 	Outputs colored text to the standard error.
-  if ($local:output = Out-Colored @args) { [Console]::Error.WriteLine($local:output)	}
-}
-
 function _yana_usage {
   # .SYNOPSIS
   # 	Outputs help information for the specified mode.
@@ -134,8 +81,7 @@ function _yana_usage {
   Write-Host '  -logfile <file>            Log file path. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file.'
 
 }
-
-function Invoke-YanaApply {
+function _yana_mode_apply {
   # .SYNOPSIS
   # 	Applies the specified YANA Module.
   param(
@@ -143,11 +89,10 @@ function Invoke-YanaApply {
     [string]$Source
   )
   if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''apply'' mode.' }
-  Out-ColoredStderr -Color 'Magenta' -Message "Applying YANA Module from source: $Source"
+  log info "Applying YANA Module from source: $Source"
   # Placeholder for actual implementation of applying the YANA module
 }
-
-function Invoke-YanaVerify {
+function _yana_mode_verify {
   # .SYNOPSIS
   # 	Verifies the state of the system against the specified YANA Module.
   param(
@@ -155,11 +100,10 @@ function Invoke-YanaVerify {
     [string]$Source
   )
   if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''verify'' mode.' }
-  Out-ColoredStderr -Color 'Magenta' -Message "Verifying YANA Module from source: $Source"
+  log info "Verifying YANA Module from source: $Source"
   # Placeholder for actual implementation of verifying the YANA module
 }
-
-function Invoke-YanaFetch {
+function _yana_mode_fetch {
   # .SYNOPSIS
   # 	Fetches the specified YANA Module.
   param(
@@ -167,10 +111,9 @@ function Invoke-YanaFetch {
     [string]$Source
   )
   if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''fetch'' mode.' }
-  Out-ColoredStderr -Color 'Magenta' -Message "Fetching YANA Module from source: $Source"
+  log info "Fetching YANA Module from source: $Source"
   # Placeholder for actual implementation of fetching the YANA module
 }
-
 function _yana_ {
   # .SYNOPSIS
   # 	The main entry point for YANA.
@@ -199,19 +142,17 @@ function _yana_ {
   log info "$Script:YANA_TITLE Version: $Script:YANA_VERSION"
   $Script:YANA_TRACE = [bool]${-Trace}
   $Script:YANA_DEBUG = [bool]${-Debug} -or $Script:YANA_TRACE
+  if ($Script:YANA_TRACE -or $Script:YANA_DEBUG) {
+    log debug "Debug logging is enabled."
+    $script:VerbosePreference = 'Continue'
+  }
 
   if ($Help) { _yana_usage -Mode $Mode; return }
   switch ($Mode) {
-    'apply' { Invoke-YanaApply -Source $Source }
-    'verify' { Invoke-YanaVerify -Source $Source }
-    'fetch' { Invoke-YanaFetch -Source $Source }
+    'apply' { _yana_mode_apply -Source $Source }
+    'verify' { _yana_mode_verify -Source $Source }
+    'fetch' { _yana_mode_fetch -Source $Source }
     'version' { $Script:YANA_VERSION }
-    '' {
-      throw 'No mode specified. Use -help to see available modes.'
-    }
-    default {
-      throw "Unknown mode: $Mode. Use -help to see available modes."
-    }
   }
 }
 
