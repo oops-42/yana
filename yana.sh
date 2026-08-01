@@ -14,10 +14,12 @@ fi
 # YANA_TRACE=true
 
 set -eEuo pipefail
-FUNCNEST=100
 
 [[ -z ${YANA_TITLE:-} ]] && builtin readonly YANA_TITLE='YANA - Yet Another Node Automator (Bash)'
 [[ -z ${YANA_VERSION:-} ]] && builtin readonly YANA_VERSION='YANAVERSIONPLACEHOLDER'
+
+FUNCNEST=100
+builtin readonly ERR_GENERAL=1 ERR_MISUSE=64 ERR_DATA_FORMAT=65 ERR_NO_INPUT=66
 
 _yana_usage() {
 	case "${YANA_MODE:-}" in
@@ -25,21 +27,21 @@ _yana_usage() {
 		builtin echo "Usage: yana.sh apply -source <path|url> [-routine <name>]"
 		builtin echo "  Applies the specified YANA Module."
 		builtin echo "Options:"
-		builtin echo "  -source <path|url>         Specifies the source of YANA Module to apply. Can be a local path or a URL. Uses YANA_LOGFILE environment variable."
-		builtin echo "  -routine <name>            Specifies the routine to execute within the YANA Module."
+		builtin echo "  -source <path|url>         Specifies the source of YANA Module to apply. Can be a local path or a URL. Uses YANA_SOURCE environment variable."
+		builtin echo "  -routine <name>            Specifies the routine to execute within the YANA Module. Uses YANA_ROUTINE environment variable."
 		;;
 	verify)
 		builtin echo "Usage: yana.sh verify -source <path|url> [-routine <name>]"
 		builtin echo "  Compares the state of the system with the state specified by the YANA Module without making any changes."
 		builtin echo "Options:"
-		builtin echo "  -source <path|url>         Specifies the source of YANA Module to verify. Can be a local path or a URL. Uses YANA_LOGFILE environment variable."
-		builtin echo "  -routine <name>            Specifies the routine to execute within the YANA Module."
+		builtin echo "  -source <path|url>         Specifies the source of YANA Module to verify. Can be a local path or a URL. Uses YANA_SOURCE environment variable."
+		builtin echo "  -routine <name>            Specifies the routine to execute within the YANA Module. Uses YANA_ROUTINE environment variable."
 		;;
 	fetch)
 		builtin echo "Usage: yana.sh fetch -source <path|url>"
 		builtin echo "  Fetches the specified YANA Module from the given source (path or URL)."
 		builtin echo "Options:"
-		builtin echo "  -source <path|url>         Specifies the source of YANA Module to fetch. Can be path or URL. Uses YANA_LOGFILE environment variable."
+		builtin echo "  -source <path|url>         Specifies the source of YANA Module to fetch. Can be path or URL. Uses YANA_SOURCE environment variable."
 		;;
 	version)
 		builtin echo "Usage: yana.sh version"
@@ -65,46 +67,45 @@ _yana_usage() {
 log() {
 	builtin local _level="${1:-${level:-info}}"
 	builtin local _message="${2:-${message:-}}"
-	[[ ${YANA_TRACE:-false} != true && ${_level,,} == trace ]] && return 0
+	_level="${_level^^}"
+	[[ -n $_message ]] || throw "No message provided to log function." $ERR_NO_INPUT
+	[[ ${YANA_TRACE:-false} != true && $_level == TRACE ]] && return 0
+	[[ ${YANA_DEBUG:-${YANA_TRACE:-false}} != true && $_level == DEBUG ]] && return 0
 	builtin local _logMessage _color_code='' _reset_code=''
-	if [[ -t 1 || -t 2 ]]; then
-		case "${_level,,}" in
-		trace) _color_code='\033[0;30m' ;;   # Gray
-		debug) _color_code='\033[0;36m' ;;   # Cyan
-		info) _color_code='\033[0;32m' ;;    # Green
-		warning) _color_code='\033[0;33m' ;; # Yellow
-		error) _color_code='\033[0;31m' ;;   # Red
-		fatal) _color_code='\033[1;31m' ;;   # Bold Red
-		*) _color_code='\033[0m' ;;          # Default
+	if [[ -t 2 ]]; then
+		case "$_level" in
+		TRACE | DEBUG) _color_code='\033[0;90m' ;;          # Gray
+		INFO) _color_code='\033[0;36m' ;;                   # Cyan
+		OK | SUCCESS | PASS) _color_code='\033[0;32m' ;;    # Green
+		SKIP) _color_code='\033[0;33m' ;;                   # Yellow
+		WARN | WARNING) _color_code='\033[0;93m' ;;         # Bright Yellow
+		FAIL | FAILURE | ERROR) _color_code='\033[0;91m' ;; # Bright Red
+		FATAL) _color_code='\033[0;31m' ;;                  # Red
+		*) _color_code='\033[0m' ;;                         # Default
 		esac
 		_reset_code='\033[0m'
 	fi
-
-	_logMessage="${_color_code}$(date -u +'%Y-%m-%dT%H:%M:%SZ')\t${_level^^}\t${_message}${_reset_code}"
-
+	_logMessage="${_color_code}$(date -u +'%Y-%m-%dT%H:%M:%SZ')\t${_level}\t${_message}${_reset_code}"
 	builtin echo -e "$_logMessage" >&2
 	if [[ -n $YANA_LOGFILE ]]; then
-		builtin echo -e "${_logMessage}" >>"$YANA_LOGFILE" || throw "Failed to write to log file '$YANA_LOGFILE'. Check permissions and available disk space."
+		# shellcheck disable=SC2097,SC2098
+		builtin echo -e "${_logMessage}" >>"$YANA_LOGFILE" || YANA_LOGFILE='' log error "Failed to write to log file '$YANA_LOGFILE'. Check permissions and available disk space."
 	fi
 }
 
 # Throws an error message and exits the script with the specified return code.
-builtin readonly ERR_GENERAL=1 ERR_MISUSE=64 ERR_DATA_FORMAT=65 ERR_NO_INPUT=66
 throw() {
+	set +x
 	builtin local _message="${1:-${message:-}}"
 	builtin local _rc="${2:-${rc:-$ERR_GENERAL}}"
 	log fatal "$_message"
-	if [[ ${YANA_TRACE:-false} == true ]]; then
-		# set +x
-		log trace "Stack trace:"
-		builtin local _frame=0 _trace
-		while true; do
-			_trace=$(builtin caller $_frame | awk '{print $3 ":" $1 " (" $2 ") "}')
-			[[ -z $_trace ]] && break
-			log trace "$_trace"
-			((_frame += 1))
-		done
-	fi
+	builtin local _frame=0 _trace
+	while true; do
+		_trace=$(builtin caller $_frame | awk '{print $3 ":" $1 " (" $2 ") "}')
+		[[ -z $_trace ]] && break
+		log stack "$_trace"
+		((_frame += 1))
+	done
 	builtin exit "$_rc"
 }
 
@@ -389,13 +390,12 @@ _yana_mode_apply() {
 	done
 	log info "YANA Module applied successfully: $YANA_SOURCE:$YANA_ROUTINE"
 }
-# Parses command-line arguments and sets global variables accordingly.
-_yana_parse_args() {
+# Main entry point.
+_yana_() {
+	builtin local YANA_MODE="${YANA_MODE:-}" YANA_SOURCE="${YANA_SOURCE:-}" YANA_ROUTINE="${YANA_ROUTINE:-}" YANA_LOGFILE="${YANA_LOGFILE:-}" YANA_TRACE="${YANA_TRACE:-false}" YANA_DEBUG="${YANA_DEBUG:-false}" _yana_show_help=false
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
-		apply | verify | fetch | version)
-			YANA_MODE="$1"
-			;;
+		apply | verify | fetch | version) YANA_MODE="$1" ;;
 		-source | --source)
 			builtin shift
 			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -source'
@@ -411,43 +411,31 @@ _yana_parse_args() {
 			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -logfile'
 			YANA_LOGFILE="$1"
 			;;
-		-help | --help)
-			_yana_show_help=true
-			;;
-		-trace | --trace)
+		-help | --help) _yana_show_help=true ;;
+		--debug) YANA_DEBUG=true ;;
+		--trace)
 			YANA_TRACE=true
-			# set -x
+			set -x
 			;;
 		*)
-			if [[ $1 == -* ]]; then
-				throw "Unknown option: $1. Use -help to see available options."
-			fi
+			[[ $1 == -* ]] && throw "Unknown option: $1. Use -help to see available options."
 			throw "Unknown mode: $1. Use -help to see available modes."
 			;;
 		esac
 		builtin shift
 	done
-}
-# Main entry point.
-_yana_() {
-	builtin local YANA_MODE="${YANA_MODE:-}" YANA_SOURCE="${YANA_SOURCE:-}" YANA_ROUTINE="${YANA_ROUTINE:-}" YANA_LOGFILE="${YANA_LOGFILE:-}" _yana_show_help=false
-	_yana_parse_args "$@"
-
 	# Display the title and version information
 	log info "$YANA_TITLE" "Version: $YANA_VERSION" >&2
-	_yana_check_prerequisites jq base64 awk
-
 	if [[ $_yana_show_help == true ]]; then
 		_yana_usage
 		builtin return 0
 	fi
+	_yana_check_prerequisites jq base64 awk
 	[[ -z $YANA_MODE ]] && throw 'No mode specified. Use -help to see available modes.'
-	builtin local YANA_CACHE_DIR="${YANA_CACHE_DIR:-$HOME/.yana/cache}" YANA_TEMP_DIR="${YANA_TEMP_DIR:-$HOME/.yana/temp}"
-	[[ -d $YANA_CACHE_DIR ]] || mkdir -p "$YANA_CACHE_DIR" || throw "Failed to create cache directory '$YANA_CACHE_DIR'." $ERR_GENERAL
-	[[ -d $YANA_TEMP_DIR ]] || mkdir -p "$YANA_TEMP_DIR" || throw "Failed to create temp directory '$YANA_TEMP_DIR'." $ERR_GENERAL
 	_yana_mode_"$YANA_MODE"
 }
 if [[ -z ${BASH_SOURCE[1]:-} ]] || [[ ${BASH_SOURCE[1]:-bashdb} == *bashdb ]]; then
 	# Proceed with the script execution only if it is executed directly or under bashdb.
-	_yana_ "$@" || builtin exit $?
+	trap 'log fatal "An unexpected error occurred at line $LINENO in function ${FUNCNAME[0]}."' ERR
+	(_yana_ "$@") || builtin exit $?
 fi
