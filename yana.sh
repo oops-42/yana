@@ -111,7 +111,7 @@ throw() {
 
 _yana_check_prerequisites() {
 	builtin local cmd
-	for cmd in "$@"; do builtin command -v "$cmd" &>/dev/null || throw "Prerequisite tool '$cmd' is missing on host node." $ERR_MISUSE; done
+	for cmd in "$@"; do builtin command -v "$cmd" &>/dev/null || throw "Prerequisite '$cmd' is not installed or not in the system PATH." $ERR_MISUSE; done
 }
 _yana_execute_fn() {
 	builtin local _yana_fn_prefix="$1" _yana_fn="$2"
@@ -120,16 +120,14 @@ _yana_execute_fn() {
 	log trace "_yana_execute_fn '$_yana_fn' with arguments: ${_yana_args_ref[*]}"
 
 	# Parse function name. Format: `[module/]script:function`
-	builtin local _yana_fn_module="${_yana_fn%%/*}" _yana_script_fn="${_yana_fn#*/}"
-	[[ $_yana_fn_module == "$_yana_fn" ]] && _yana_fn_module='' # Default module if no module specified
-	[[ $_yana_fn_module =~ ^[a-zA-Z0-9_\.-]*$ ]] || throw "Step action module shall be empty or alphanumeric. Got: '$_yana_fn_module'" $ERR_NO_INPUT
-	builtin local _yana_fn_script="${_yana_script_fn%%:*}"
-	[[ $_yana_fn_script =~ ^[a-zA-Z0-9_\.-]*$ ]] || throw "Step action script shall be alphanumeric. Got: '$_yana_fn_script'" $ERR_NO_INPUT
-	builtin local _yana_fn_func="${_yana_script_fn#*:}"
-	[[ $_yana_fn_func =~ ^[a-zA-Z0-9_\.-]+$ ]] || throw "Step action function shall be alphanumeric. Got: '$_yana_fn_func'" $ERR_NO_INPUT
-	[[ $_yana_fn_script == "$_yana_fn_func" ]] && _yana_fn_script='' # Default script if no script specified
-
-	log trace "Parsed function name: module='$_yana_fn_module', script='$_yana_fn_script', function='$_yana_fn_func'"
+	if [[ $_yana_fn =~ ^(([a-zA-Z0-9][a-zA-Z0-9_\.-]*)/)?([a-zA-Z0-9][a-zA-Z0-9_\.-]*)\:([a-zA-Z0-9_]+)$ ]]; then
+		builtin local _yana_fn_module="${BASH_REMATCH[2]}"
+		builtin local _yana_fn_script="${BASH_REMATCH[3]}"
+		builtin local _yana_fn_func="${BASH_REMATCH[4]}"
+		log debug "Parsed function name: module='$_yana_fn_module', script='$_yana_fn_script', function='$_yana_fn_func'"
+	else
+		throw "Invalid function name format: '$_yana_fn'. Expected format: '[module/]script:function'." $ERR_NO_INPUT
+	fi
 	builtin local _rc=0
 	_yana_output_ref=$(
 		# Unset any previously defined private _yana_ functions and variables to avoid conflicts
@@ -148,7 +146,7 @@ _yana_execute_fn() {
 			builtin source "$_yana_script_path" >&2 || throw "Failed to source script '$_yana_script_path'." $?
 		done
 		log trace "Executing function '${_yana_fn_prefix}_${_yana_fn_func}' from script '$_yana_fn_script' in module '$_yana_fn_module' with arguments: ${_yana_args_ref[*]}"
-		#shellcheck disable=SC2178
+		#shellcheck disable=SC2034
 		local -n YANA_ARGS=_yana_args_ref
 		"${_yana_fn_prefix}_${_yana_fn_func}"
 	) || _rc=$?
@@ -194,11 +192,11 @@ _yana_expand_var() {
 		log trace "Cached resolved value for variable '$_yana_var_name' as JSON string: ${_yana_vars_ref["$_yana_var_name"]}"
 	fi
 }
-# Resolves variable placeholders in the input string using the provided context (param/var).
+# Resolves variable placeholders in the input string.
 _yana_expand_string() {
 	builtin local _input="${1:-$(cat -)}"
 	builtin local -n _output_ref="${2:-}"
-	log trace "Resolving variables in input: $_input"
+	log trace "Expanding string '$_input'"
 	builtin local _resolve_iters=0 _max_iters=${FUNCNEST:-50} _value=''
 	while [[ $_input =~ \$\{(param|var):([a-zA-Z0-9_]+)\} ]]; do
 		builtin local _var="${BASH_REMATCH[0]}" _ctx="${BASH_REMATCH[1]}" _key="${BASH_REMATCH[2]}" _value=''
@@ -206,8 +204,8 @@ _yana_expand_string() {
 		((_resolve_iters++))
 		[[ $_resolve_iters -gt $_max_iters ]] && throw "Variable resolution exceeded $_max_iters iterations (possible circular reference)." $ERR_DATA_FORMAT
 		case "$_ctx" in
-		param) _value="${YANA_PARAMS[$_key]:-}" ;;
-		var) _yana_expand_var "$_key" _value || throw "Failed to expand variable '$_var'." $ERR_DATA_FORMAT ;;
+		param) if [[ -v YANA_PARAMS["$_key"] ]]; then _value="${YANA_PARAMS[$_key]:-}"; else throw "Parameter '$_key' is not defined." $ERR_MISUSE; fi ;;
+		var) if [[ -v YANA_VARS["$_key"] ]]; then _yana_expand_var "$_key" _value; else throw "Variable '$_key' is not defined." $ERR_MISUSE; fi ;;
 		*) throw "Unknown variable type '$_ctx' in variable reference '$_var'. This should never happen. Please report this as a bug." $ERR_GENERAL ;;
 		esac
 		[[ -z $_value ]] && log warning "Variable '$_var' resolved to an empty value. Ensure that the variable is defined and has a non-empty value."
@@ -306,7 +304,7 @@ _yana_verify_step() {
 	fi
 }
 # Reads and parses the YANA spec file for the specified routine.
-_yana_read_spec_file() {
+_yana_load_spec_file() {
 	builtin local _yana_spec_path="${YANA_SOURCE}/${YANA_ROUTINE}.yana.json" _yana_spec_file
 	_yana_spec_file=$(realpath "$_yana_spec_path" 2>/dev/null) || throw "'$_yana_spec_path': No such file or directory" $ERR_NO_INPUT
 	jq -e -r '.' "$_yana_spec_file" >/dev/null 2>&1 || throw "Failed to parse YANA spec file '$_yana_spec_file'. Ensure it is valid JSON." $ERR_DATA_FORMAT
@@ -317,8 +315,10 @@ _yana_read_spec_file() {
 	YANA_SPEC[version]=$(jq -r '.version // empty' "$_yana_spec_file")
 	YANA_SPEC[author]=$(jq -r '.author // empty' "$_yana_spec_file")
 	YANA_SPEC[license]=$(jq -r '.license // empty' "$_yana_spec_file")
-	YANA_SPEC[requires]=$(jq -r '(.requires // []) | .[]' "$_yana_spec_file")
-	YANA_SPEC[steps]=$(jq -r -c '.steps // [] | .[] | @base64' "$_yana_spec_file")
+	YANA_REQUIRES=()
+	builtin readarray -t YANA_REQUIRES < <(jq -r '(.requires // []) | .[]' "$_yana_spec_file")
+	YANA_STEPS=()
+	builtin readarray -t YANA_STEPS < <(jq -r -c '.steps // [] | .[] | @base64' "$_yana_spec_file")
 	YANA_PARAMS=()
 	# Extract parameters into associative array
 	builtin local _yana_spec_params_raw _yana_spec_param _yana_spec_param_key _yana_spec_param_value _yana_spec_param_value_b64
@@ -344,7 +344,9 @@ _yana_mode_version() { builtin echo "$YANA_VERSION"; }
 _yana_mode_fetch() {
 	[[ -z $YANA_SOURCE ]] && throw 'No source specified'
 	log info "Fetching YANA Module: $YANA_SOURCE"
-	# Implement the fetch logic here
+	log warn "Assume $YANA_SOURCE is a local path for now. _yana_mode_fetch will handle fetching from URL later."
+	[[ -d $YANA_SOURCE ]] || throw "'$YANA_SOURCE': No such directory" $ERR_NO_INPUT
+	[[ -f "$YANA_SOURCE/$YANA_ROUTINE.yana.json" ]] || throw "'$YANA_SOURCE/$YANA_ROUTINE.yana.json': No such file" $ERR_NO_INPUT
 }
 # Verifies the YANA Module from the specified source (local path or URL) without making any changes.
 _yana_mode_verify() {
@@ -352,16 +354,16 @@ _yana_mode_verify() {
 	_yana_mode_fetch
 	log info "Verifying YANA Module: $YANA_SOURCE"
 	# Implement the verify logic here
-	# Assume YANA_SOURCE is a local path for now. _yana_mode_fetch will handle fetching from URL later.
 	builtin local -A YANA_SPEC YANA_PARAMS YANA_VARS
-	_yana_read_spec_file
+	builtin local -a YANA_STEPS YANA_REQUIRES
+	_yana_load_spec_file
 
 	#shellcheck disable=SC2086
 	_yana_check_prerequisites ${YANA_SPEC[requires]}
 
 	builtin local _yana_step
 	# Execute steps
-	for _yana_step in ${YANA_SPEC[steps]}; do
+	for _yana_step in "${YANA_STEPS[@]}"; do
 		_yana_verify_step "$_yana_step" || return $?
 	done
 	log info "YANA Module verified successfully: $YANA_SOURCE:$YANA_ROUTINE"
@@ -372,17 +374,15 @@ _yana_mode_apply() {
 	[[ -z $YANA_SOURCE ]] && throw 'No source specified'
 	_yana_mode_fetch
 	log info "Applying YANA Module: $YANA_SOURCE:$YANA_ROUTINE"
-
-	# Assume YANA_SOURCE is a local path for now. _yana_mode_fetch will handle fetching from URL later.
 	builtin local -A YANA_SPEC YANA_PARAMS YANA_VARS
-	_yana_read_spec_file
-
+	builtin local -a YANA_STEPS YANA_REQUIRES
+	_yana_load_spec_file
 	#shellcheck disable=SC2086
-	_yana_check_prerequisites ${YANA_SPEC[requires]}
+	_yana_check_prerequisites "${YANA_REQUIRES[@]}"
 
 	builtin local _yana_step
 	# Execute steps
-	for _yana_step in ${YANA_SPEC[steps]}; do
+	for _yana_step in "${YANA_STEPS[@]}"; do
 		_yana_apply_step "$_yana_step" || {
 			log error "Step execution failed." $?
 			return $?
@@ -412,11 +412,11 @@ _yana_() {
 			YANA_LOGFILE="$1"
 			;;
 		-help | --help) _yana_show_help=true ;;
-		--debug) YANA_DEBUG=true ;;
-		--trace)
-			YANA_TRACE=true
-			set -x
-			;;
+		# --debug) YANA_DEBUG=true ;;
+		# --trace)
+		# 	YANA_TRACE=true
+		# 	# set -x
+		# 	;;
 		*)
 			[[ $1 == -* ]] && throw "Unknown option: $1. Use -help to see available options."
 			throw "Unknown mode: $1. Use -help to see available modes."
