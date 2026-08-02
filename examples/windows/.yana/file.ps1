@@ -11,8 +11,7 @@ function YANAverify_create {
 
 function YANAapply_write {
   param ([string]$Path, [string]$Content = '')
-  YANAapply_create -Path $Path
-  # if (YANAverify_write -Path $Path -Content $Content) { return }
+  YANAapply_create -Path $Path | Out-Null
   [System.IO.File]::WriteAllText($Path, $Content)
 }
 function YANAverify_write {
@@ -21,4 +20,11 @@ function YANAverify_write {
   if (-not (YANAverify_create -Path $Path)) { return $false }
   $existingContent = Get-Content -Path $Path -Raw
   return ($Content -eq $existingContent)
+}
+
+function YANAvar_read([string]$path) {
+  if (-not $path) { throw "'path' argument is required" }
+  if (Test-Path $path -PathType Container) { throw "'$path' is a directory, expected a file" }
+  if (-not (Test-Path $path -PathType Leaf)) { throw "File '$path' does not exist" }
+  Get-Content "$path" -Raw
 }

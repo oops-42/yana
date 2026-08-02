@@ -3,32 +3,48 @@
     "powershell"
   ],
   "params": {
-    "service_name": "WinRM",
-    "app_directory": "C:\\YanaApp\\logs",
-    "log_file": "${param:app_directory}\\app.log"
+    "app_dir": "c:/yana_demo",
+    "config_file": "${param:app_dir}/config.env",
+    "marker_file": "${param:app_dir}/status.txt",
+    "service_port": "8080"
+  },
+  "vars": {
+    "marker_file_content": {
+      "fn": "file:read",
+      "args": {
+        "path": "${param:marker_file}"
+      }
+    },
+    "user": {
+      "fn": "sys:user",
+      "cached": true
+    },
+    "group": {
+      "fn": "sys:group"
+    },
+    "owner": "${var:user}:${var:group}",
+    "i": 1,
+    "a": [1, 2, 3],
+    "b": true,
+    "s": "s"
   },
   "steps": [
     {
-      "id": "create_log_dir",
-      "name": "Create Application Log Directory",
-      "action": "dir:create",
+      "name": "Create marker file",
+      "apply": "file:create",
       "args": {
-        "Path": "${param:app_directory}"
+        "path": "${param:marker_file}",
+        "content": "STATUS=ACTIVE",
+        "owner": "${var:owner}"
       }
     },
     {
-      "name": "Write Application Log File",
-      "action": "file:write",
+      "name": "Ensure application configuration exists",
+      "apply": "file:write",
       "args": {
-        "Path": "${param:log_file}",
-        "Content": "Application started at ${var:time}\nUser: ${env:USERNAME}\nLog directory: ${output:create_log_dir}\n"
-      }
-    },
-    {
-      "name": "Ensure WinRM Service is Started",
-      "action": "service:start",
-      "args": {
-        "Name": "${param:service_name}"
+        "path": "${param:config_file}",
+        "content": "marker_file=${var:marker_file_content}\nPORT=${param:service_port}\nUSER=${var:user}",
+        "owner": "${var:owner}"
       }
     }
   ]
