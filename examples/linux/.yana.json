@@ -17,11 +17,11 @@
       }
     },
     "user": {
-      "fn": "user",
+      "fn": "sys:user",
       "cached": true
     },
     "group": {
-      "fn": ":group"
+      "fn": "sys:group"
     },
     "owner": "${var:user}:${var:group}",
     "i": 1,
