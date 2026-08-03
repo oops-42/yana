@@ -34,8 +34,7 @@
       "apply": "file:create",
       "args": {
         "path": "${param:marker_file}",
-        "content": "STATUS=ACTIVE",
-        "owner": "${var:owner}"
+        "content": "STATUS=ACTIVE"
       }
     },
     {
@@ -43,8 +42,7 @@
       "apply": "file:write",
       "args": {
         "path": "${param:config_file}",
-        "content": "marker_file=${var:marker_file_content}\nPORT=${param:service_port}\nUSER=${var:user}",
-        "owner": "${var:owner}"
+        "content": "marker_file=${var:marker_file_content}\nPORT=${param:service_port}\nUSER=${var:user}"
       }
     }
   ]

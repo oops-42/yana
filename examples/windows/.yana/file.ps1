@@ -1,12 +1,19 @@
 function YANAapply_create {
-  param ([string]$Path)
+  param ([string]$Path, [string]$Content)
   New-Item -ItemType File -Path $Path -Force
+  if ($Content) {
+    [System.IO.File]::WriteAllText($Path, $Content)
+  }
 }
 function YANAverify_create {
-  param ([string]$Path)
+  param ([string]$Path, [string]$Content)
   if ([string]::IsNullOrEmpty($Path)) { throw 'Path cannot be null or empty.' }
+  if (-not (Test-Path $Path -PathType Leaf)) { return $false }
   # Return true if file exists
-  Test-Path -Path $Path -PathType Leaf
+  if ($Content) {
+    $existingContent = [System.IO.File]::ReadAllText($Path)
+    return ($Content -eq $existingContent)
+  }
 }
 
 function YANAapply_write {
@@ -17,8 +24,8 @@ function YANAapply_write {
 function YANAverify_write {
   param ([string]$Path, [string]$Content = '')
   if ([string]::IsNullOrEmpty($Path)) { throw 'Path cannot be null or empty.' }
-  if (-not (YANAverify_create -Path $Path)) { return $false }
-  $existingContent = Get-Content -Path $Path -Raw
+  if (-not (Test-Path $Path -PathType Leaf)) { return $false }
+  $existingContent = [System.IO.File]::ReadAllText($Path)
   return ($Content -eq $existingContent)
 }
 

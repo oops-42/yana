@@ -1,8 +1,4 @@
-function yanavar_user() {
-  get-variable | format-table | out-string | write-host
-
-
-  $Env:USER; }
+function yanavar_user() { $Env:USER; }
 function yanavar_group() { whoami }
 function yanavar_hostname() { hostname; }
 function yanavar_os() { uname -s; }
