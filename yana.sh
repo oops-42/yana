@@ -241,43 +241,59 @@ _yana_load_step() {
 	_yana_step_ref['id']=$(jq -r '.id // empty' <<<"$_yana_step_json")
 	[[ -n ${_yana_step_ref['id']} && ! ${_yana_step_ref['id']} =~ ^[a-zA-Z0-9_]+$ ]] && throw "Step ID shall be empty or alphanumeric. Got: '${_yana_step_ref['id']}'" $ERR_NO_INPUT
 	_yana_step_ref['name']=$(jq -r '.name // error' <<<"$_yana_step_json") || throw "Step name is missing in step data." $ERR_NO_INPUT
-	_yana_step_ref['action']=$(jq -r '.action // error' 2>/dev/null <<<"$_yana_step_json") || throw "Step action is missing in step data." $ERR_NO_INPUT
+	_yana_step_ref['apply']=$(jq -r '.apply // "-"' 2>/dev/null <<<"$_yana_step_json")
+	_yana_step_ref['verify']=$(jq -r '.verify // "-"' 2>/dev/null <<<"$_yana_step_json")
 	_yana_step_ref['args']=$(jq -r '(.args | objects) // {} | to_entries | map("\(.key):\(.value|@text|@base64)") | .[]' <<<"$_yana_step_json")
+	if [[ ${_yana_step_ref['apply']} == "-" && ${_yana_step_ref['verify']} == "-" ]]; then
+		throw "Step '${_yana_step_ref['name']}' must have at least one of 'apply' or 'verify' defined." $ERR_NO_INPUT
+	fi
+	[[ ${_yana_step_ref['apply']} == "-" ]] && _yana_step_ref['apply']=""
+	[[ ${_yana_step_ref['verify']} == "-" && -n ${_yana_step_ref['apply']} ]] && _yana_step_ref['verify']="${_yana_step_ref['apply']}"
+	[[ ${_yana_step_ref['verify']} == "-" ]] && _yana_step_ref['verify']=""
+
 }
 _yana_apply_step() {
 	# shellcheck disable=SC2034
 	builtin local -A YANA_STEP #YANA_ARGS
 	_yana_load_step "$@" YANA_STEP
-	builtin local _rc=0 _yana_step_output _yana_skip_verify=false
+	builtin local _rc=0 _yana_step_output
+	if [[ -z ${YANA_STEP['apply']} ]]; then
+		log skip "  - [SKIPPED] ${YANA_STEP[name]} (no apply function defined)"
+		return 0
+	fi
 	builtin local -A _yana_step_args
 	_yana_resolve_args "${YANA_STEP['args']}" _yana_step_args || throw "Failed to resolve arguments for step '${YANA_STEP[name]}'." $ERR_DATA_FORMAT
-	log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if changes are needed)"
-	_yana_execute_fn 'yanaverify' "${YANA_STEP['action']}" _yana_step_output _yana_step_args || _rc=$?
-	if [[ $_rc -eq 0 ]]; then # compliant, no changes needed
-		log info "  - [COMPLIANT] ${YANA_STEP[name]} (no changes needed)"
-		return 0
-	elif [[ $_rc -eq 1 ]]; then # non-compliant, changes needed
-		log warning "  - [NON-COMPLIANT] ${YANA_STEP[name]} (changes needed)"
-	elif [[ $_rc -eq 127 ]]; then # function not found
-		log warning "  - [SKIPPED] ${YANA_STEP[name]} (verification function not found)"
-		_yana_skip_verify=true
-	else # argument/syntax/other errors
-		log error "  - [FAILED] ${YANA_STEP[name]} (failed to verify compliance, return code: $_rc)"
-		return $_rc
+	if [[ -z ${YANA_STEP['verify']} ]]; then
+		log skip "  - [SKIPPED] ${YANA_STEP[name]} (verify function undefined)"
+	else
+		log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if changes are needed)"
+		_yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" _yana_step_output _yana_step_args || _rc=$?
+		if [[ $_rc -eq 0 ]]; then # compliant, no changes needed
+			log success "  - [COMPLIANT] ${YANA_STEP[name]} (no changes needed)"
+			return 0
+		elif [[ $_rc -eq 1 ]]; then # non-compliant, changes needed
+			log fail "  - [NON-COMPLIANT] ${YANA_STEP[name]} (changes needed)"
+		elif [[ $_rc -eq 127 ]]; then # function not found
+			log skip "  - [SKIPPED] ${YANA_STEP[name]} (verification function not found)"
+			YANA_STEP['verify']=''
+		else # argument/syntax/other errors
+			log error "  - [FAILED] ${YANA_STEP[name]} (failed to verify compliance, return code: $_rc)"
+			return $_rc
+		fi
 	fi
 	log info "  - [APPLYING] ${YANA_STEP[name]} (making changes)"
 	_rc=0
-	_yana_execute_fn 'yanaapply' "${YANA_STEP['action']}" _yana_step_output _yana_step_args || _rc=$?
+	_yana_execute_fn 'yanaapply' "${YANA_STEP['apply']}" _yana_step_output _yana_step_args || _rc=$?
 	if [[ $_rc -eq 0 ]]; then
-		log info "  - [APPLIED] ${YANA_STEP[name]} (changes applied)"
+		log success "  - [APPLIED] ${YANA_STEP[name]} (changes applied)"
 	else
 		log error "  - [FAILED] ${YANA_STEP[name]} (failed to apply changes, return code: $_rc)"
 		return $_rc
 	fi
-	[[ $_yana_skip_verify == true ]] && return 0
+	[[ -z ${YANA_STEP['verify']} ]] && return 0
 	log info "  - [POST-VERIFYING] ${YANA_STEP[name]} (checking if changes stuck)"
-	if _yana_execute_fn 'yanaverify' "${YANA_STEP['action']}" _yana_step_output _yana_step_args; then
-		log info "  - [POST-COMPLIANT] ${YANA_STEP[name]} (changes verified)"
+	if _yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" _yana_step_output _yana_step_args; then
+		log success "  - [POST-COMPLIANT] ${YANA_STEP[name]} (changes verified)"
 	else
 		log error "  - [POST-NON-COMPLIANT] ${YANA_STEP[name]} (changes did not stick)"
 		return 1
@@ -287,16 +303,20 @@ _yana_verify_step() {
 	# shellcheck disable=SC2034
 	builtin local -A YANA_STEP _yana_step_args
 	_yana_load_step "$@"
+	if [[ -z ${YANA_STEP['verify']} ]]; then
+		log skip "  - [SKIPPED] ${YANA_STEP[name]} (no verify function defined)"
+		return 0
+	fi
 	_yana_resolve_args "${YANA_STEP['args']}" _yana_step_args || throw "Failed to resolve arguments for step '${YANA_STEP[name]}'." $ERR_DATA_FORMAT
 
 	log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if state is compliant)"
 	builtin local _rc=0
-	_yana_execute_fn 'yanaverify' "${YANA_STEP['action']}" _yana_step_output _yana_step_args || _rc=$?
+	_yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" _yana_step_output _yana_step_args || _rc=$?
 	if [[ $_rc -eq 0 ]]; then
-		log info "  - [COMPLIANT] ${YANA_STEP[name]} (state is compliant)"
+		log success "  - [COMPLIANT] ${YANA_STEP[name]} (state is compliant)"
 		return 0
 	elif [[ $_rc -eq 127 ]]; then
-		log warning "  - [SKIPPED] ${YANA_STEP[name]} (verification function not found)"
+		log skip "  - [SKIPPED] ${YANA_STEP[name]} (verification function not found)"
 		return 0
 	else
 		log error "  - [NON-COMPLIANT] ${YANA_STEP[name]} (state is not compliant)"
@@ -357,9 +377,8 @@ _yana_mode_verify() {
 	builtin local -A YANA_SPEC YANA_PARAMS YANA_VARS
 	builtin local -a YANA_STEPS YANA_REQUIRES
 	_yana_load_spec_file
-
 	#shellcheck disable=SC2086
-	_yana_check_prerequisites ${YANA_SPEC[requires]}
+	_yana_check_prerequisites "${YANA_REQUIRES[@]}"
 
 	builtin local _yana_step
 	# Execute steps
