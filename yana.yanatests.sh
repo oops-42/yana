@@ -90,7 +90,7 @@ function YANAtest:_yana_@help_mode_apply {
 	else
 		fail "should return 0 when invoked with -help apply, got: $_rc"
 	fi
-	if [[ $test_result == *'Usage: yana.sh apply -source <path|url> [-routine <name>]'* ]]; then
+	if [[ $test_result == *'Usage: yana.sh apply -source <path|url>'* ]]; then
 		pass 'should print usage information for apply mode when invoked with -help apply'
 	else
 		fail "should print usage information for apply mode when invoked with -help apply, got: $test_result"
@@ -106,7 +106,7 @@ function YANAtest:_yana_@help_mode_verify {
 	else
 		fail "should return 0 when invoked with -help verify, got: $_rc"
 	fi
-	if [[ $test_result == *'Usage: yana.sh verify -source <path|url> [-routine <name>]'* ]]; then
+	if [[ $test_result == *'Usage: yana.sh verify -source <path|url>'* ]]; then
 		pass 'should print usage information for verify mode when invoked with -help verify'
 	else
 		fail "should print usage information for verify mode when invoked with -help verify, got: $test_result"
@@ -134,17 +134,17 @@ function YANAtest:_yana_@mode_apply {
 	_rc=0
 	test_result=$(
 		function _yana_mode_apply() {
-			builtin echo "apply: '$YANA_SOURCE' '$YANA_ROUTINE'"
+			builtin echo "apply: '$YANA_SOURCE'"
 		}
 
-		YANA_MODE='' YANA_SOURCE='' YANA_LOGFILE='' _yana_ apply -source 'qwerty' -routine 'hello' 2>/dev/null
+		YANA_MODE='' YANA_SOURCE='' YANA_LOGFILE='' _yana_ apply -source 'qwerty' 2>/dev/null
 	) || _rc=$?
 	if [[ $_rc -eq 0 ]]; then
 		pass 'should return 0 when invoked with apply'
 	else
 		fail "should return 0 when invoked with apply, got: $_rc"
 	fi
-	if [[ $test_result == "apply: 'qwerty' 'hello'" ]]; then
+	if [[ $test_result == "apply: 'qwerty'" ]]; then
 		pass 'should print apply mode invocation message'
 	else
 		fail "should print apply mode invocation message, got: $test_result"
@@ -156,17 +156,17 @@ function YANAtest:_yana_@mode_apply_env {
 	_rc=0
 	test_result=$(
 		function _yana_mode_apply() {
-			builtin echo "apply: '$YANA_SOURCE' '$YANA_ROUTINE'"
+			builtin echo "apply: '$YANA_SOURCE'"
 		}
 
-		YANA_LOGFILE='' YANA_MODE=apply YANA_SOURCE='qwerty' YANA_ROUTINE='hello' _yana_ 2>/dev/null
+		YANA_LOGFILE='' YANA_MODE=apply YANA_SOURCE='qwerty' _yana_ 2>/dev/null
 	) || _rc=$?
 	if [[ $_rc -eq 0 ]]; then
 		pass 'should return 0 when invoked with apply'
 	else
 		fail "should return 0 when invoked with apply, got: $_rc"
 	fi
-	if [[ $test_result == "apply: 'qwerty' 'hello'" ]]; then
+	if [[ $test_result == "apply: 'qwerty'" ]]; then
 		pass 'should print apply mode invocation message'
 	else
 		fail "should print apply mode invocation message, got: $test_result"
@@ -177,9 +177,6 @@ function YANAtest:_yana_@mode_apply_no_source {
 	local _rc test_result
 	_rc=0
 	test_result=$(
-		# function _yana_mode_apply() {
-		# 	builtin echo "apply: '$YANA_SOURCE' '$YANA_ROUTINE'"
-		# }
 		throw() {
 			builtin echo "Thrown: $1"
 			builtin exit 1
@@ -229,17 +226,17 @@ function YANAtest:_yana_@mode_verify {
 	_rc=0
 	test_result=$(
 		function _yana_mode_verify() {
-			builtin echo "verify: '$YANA_SOURCE' '$YANA_ROUTINE'"
+			builtin echo "verify: '$YANA_SOURCE'"
 		}
 
-		YANA_LOGFILE='' YANA_MODE='' YANA_SOURCE='' YANA_ROUTINE='' _yana_ verify -source qwerty -routine hello 2>/dev/null
+		YANA_LOGFILE='' YANA_MODE='' YANA_SOURCE='' _yana_ verify -source qwerty 2>/dev/null
 	) || _rc=$?
 	if [[ $_rc -eq 0 ]]; then
 		pass 'should return 0 when invoked with verify'
 	else
 		fail "should return 0 when invoked with verify, got: $_rc"
 	fi
-	if [[ $test_result == "verify: 'qwerty' 'hello'" ]]; then
+	if [[ $test_result == "verify: 'qwerty'" ]]; then
 		pass 'should print verify mode invocation message'
 	else
 		fail "should print verify mode invocation message, got: $test_result"

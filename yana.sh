@@ -24,18 +24,16 @@ builtin readonly ERR_GENERAL=1 ERR_MISUSE=64 ERR_DATA_FORMAT=65 ERR_NO_INPUT=66
 _yana_usage() {
 	case "${YANA_MODE:-}" in
 	apply)
-		builtin echo "Usage: yana.sh apply -source <path|url> [-routine <name>]"
+		builtin echo "Usage: yana.sh apply -source <path|url>"
 		builtin echo "  Applies the specified YANA Module."
 		builtin echo "Options:"
 		builtin echo "  -source <path|url>         Specifies the source of YANA Module to apply. Can be a local path or a URL. Uses YANA_SOURCE environment variable."
-		builtin echo "  -routine <name>            Specifies the routine to execute within the YANA Module. Uses YANA_ROUTINE environment variable."
 		;;
 	verify)
-		builtin echo "Usage: yana.sh verify -source <path|url> [-routine <name>]"
+		builtin echo "Usage: yana.sh verify -source <path|url>"
 		builtin echo "  Compares the state of the system with the state specified by the YANA Module without making any changes."
 		builtin echo "Options:"
 		builtin echo "  -source <path|url>         Specifies the source of YANA Module to verify. Can be a local path or a URL. Uses YANA_SOURCE environment variable."
-		builtin echo "  -routine <name>            Specifies the routine to execute within the YANA Module. Uses YANA_ROUTINE environment variable."
 		;;
 	fetch)
 		builtin echo "Usage: yana.sh fetch -source <path|url>"
@@ -252,6 +250,30 @@ _yana_load_step() {
 	[[ ${_yana_step_ref['verify']} == "-" ]] && _yana_step_ref['verify']=""
 
 }
+_yana_verify_step() {
+	# shellcheck disable=SC2034
+	builtin local -A YANA_STEP _yana_step_args
+	_yana_load_step "$@"
+	if [[ -z ${YANA_STEP['verify']} ]]; then
+		log skip "  - [SKIPPED] ${YANA_STEP[name]} (no verify function defined)"
+		return 0
+	fi
+	_yana_resolve_args "${YANA_STEP['args']}" _yana_step_args || throw "Failed to resolve arguments for step '${YANA_STEP[name]}'." $ERR_DATA_FORMAT
+
+	log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if state is compliant)"
+	builtin local _rc=0
+	_yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" _yana_step_output _yana_step_args || _rc=$?
+	if [[ $_rc -eq 0 ]]; then
+		log success "  - [COMPLIANT] ${YANA_STEP[name]} (state is compliant)"
+		return 0
+	elif [[ $_rc -eq 127 ]]; then
+		log skip "  - [SKIPPED] ${YANA_STEP[name]} (verification function not found)"
+		return 0
+	else
+		log error "  - [NON-COMPLIANT] ${YANA_STEP[name]} (state is not compliant)"
+		return $_rc
+	fi
+}
 _yana_apply_step() {
 	# shellcheck disable=SC2034
 	builtin local -A YANA_STEP #YANA_ARGS
@@ -299,33 +321,9 @@ _yana_apply_step() {
 		return 1
 	fi
 }
-_yana_verify_step() {
-	# shellcheck disable=SC2034
-	builtin local -A YANA_STEP _yana_step_args
-	_yana_load_step "$@"
-	if [[ -z ${YANA_STEP['verify']} ]]; then
-		log skip "  - [SKIPPED] ${YANA_STEP[name]} (no verify function defined)"
-		return 0
-	fi
-	_yana_resolve_args "${YANA_STEP['args']}" _yana_step_args || throw "Failed to resolve arguments for step '${YANA_STEP[name]}'." $ERR_DATA_FORMAT
-
-	log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if state is compliant)"
-	builtin local _rc=0
-	_yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" _yana_step_output _yana_step_args || _rc=$?
-	if [[ $_rc -eq 0 ]]; then
-		log success "  - [COMPLIANT] ${YANA_STEP[name]} (state is compliant)"
-		return 0
-	elif [[ $_rc -eq 127 ]]; then
-		log skip "  - [SKIPPED] ${YANA_STEP[name]} (verification function not found)"
-		return 0
-	else
-		log error "  - [NON-COMPLIANT] ${YANA_STEP[name]} (state is not compliant)"
-		return $_rc
-	fi
-}
-# Reads and parses the YANA spec file for the specified routine.
+# Reads and parses the YANA spec file.
 _yana_load_spec_file() {
-	builtin local _yana_spec_path="${YANA_SOURCE}/${YANA_ROUTINE}.yana.json" _yana_spec_file
+	builtin local _yana_spec_path="${YANA_SOURCE}/.yana.json" _yana_spec_file
 	_yana_spec_file=$(realpath "$_yana_spec_path" 2>/dev/null) || throw "'$_yana_spec_path': No such file or directory" $ERR_NO_INPUT
 	jq -e -r '.' "$_yana_spec_file" >/dev/null 2>&1 || throw "Failed to parse YANA spec file '$_yana_spec_file'. Ensure it is valid JSON." $ERR_DATA_FORMAT
 
@@ -366,7 +364,7 @@ _yana_mode_fetch() {
 	log info "Fetching YANA Module: $YANA_SOURCE"
 	log warn "Assume $YANA_SOURCE is a local path for now. _yana_mode_fetch will handle fetching from URL later."
 	[[ -d $YANA_SOURCE ]] || throw "'$YANA_SOURCE': No such directory" $ERR_NO_INPUT
-	[[ -f "$YANA_SOURCE/$YANA_ROUTINE.yana.json" ]] || throw "'$YANA_SOURCE/$YANA_ROUTINE.yana.json': No such file" $ERR_NO_INPUT
+	[[ -f "$YANA_SOURCE/.yana.json" ]] || throw "'$YANA_SOURCE/.yana.json': No such file" $ERR_NO_INPUT
 }
 # Verifies the YANA Module from the specified source (local path or URL) without making any changes.
 _yana_mode_verify() {
@@ -385,14 +383,14 @@ _yana_mode_verify() {
 	for _yana_step in "${YANA_STEPS[@]}"; do
 		_yana_verify_step "$_yana_step" || return $?
 	done
-	log info "YANA Module verified successfully: $YANA_SOURCE:$YANA_ROUTINE"
+	log info "YANA Module verified successfully: $YANA_SOURCE"
 
 }
 # Applies the YANA Module from the specified source (local path or URL).
 _yana_mode_apply() {
 	[[ -z $YANA_SOURCE ]] && throw 'No source specified'
 	_yana_mode_fetch
-	log info "Applying YANA Module: $YANA_SOURCE:$YANA_ROUTINE"
+	log info "Applying YANA Module: $YANA_SOURCE"
 	builtin local -A YANA_SPEC YANA_PARAMS YANA_VARS
 	builtin local -a YANA_STEPS YANA_REQUIRES
 	_yana_load_spec_file
@@ -407,11 +405,11 @@ _yana_mode_apply() {
 			return $?
 		}
 	done
-	log info "YANA Module applied successfully: $YANA_SOURCE:$YANA_ROUTINE"
+	log info "YANA Module applied successfully: $YANA_SOURCE"
 }
 # Main entry point.
 _yana_() {
-	builtin local YANA_MODE="${YANA_MODE:-}" YANA_SOURCE="${YANA_SOURCE:-}" YANA_ROUTINE="${YANA_ROUTINE:-}" YANA_LOGFILE="${YANA_LOGFILE:-}" YANA_TRACE="${YANA_TRACE:-false}" YANA_DEBUG="${YANA_DEBUG:-false}" _yana_show_help=false
+	builtin local YANA_MODE="${YANA_MODE:-}" YANA_SOURCE="${YANA_SOURCE:-}" YANA_LOGFILE="${YANA_LOGFILE:-}" YANA_TRACE="${YANA_TRACE:-false}" YANA_DEBUG="${YANA_DEBUG:-false}" _yana_show_help=false
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		apply | verify | fetch | version) YANA_MODE="$1" ;;
@@ -419,11 +417,6 @@ _yana_() {
 			builtin shift
 			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -source'
 			YANA_SOURCE="$1"
-			;;
-		-routine | --routine)
-			builtin shift
-			[[ $# -ge 1 && $1 != -* ]] || throw 'Missing value for -routine'
-			YANA_ROUTINE="$1"
 			;;
 		-logfile | --logfile)
 			builtin shift
