@@ -14,6 +14,7 @@ function YANAverify_create {
     $existingContent = [System.IO.File]::ReadAllText($Path)
     return ($Content -eq $existingContent)
   }
+  return $true
 }
 
 function YANAapply_write {
