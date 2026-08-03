@@ -12,19 +12,17 @@ Set-Variable -Name YANA_VERSION -Value 'YANAVERSIONPLACEHOLDER' -Option Constant
 function _yana_usage([string]$Mode) {
   switch ($Mode) {
     'apply' {
-      Write-Host 'Usage: yana.ps1 apply -source <path|url> [-routine <name>]'
+      Write-Host 'Usage: yana.ps1 apply -source <path|url>'
       Write-Host '  Applies the specified YANA Module.'
       Write-Host 'Options:'
       Write-Host '  -source <path|url>         Specifies the source of YANA Module to apply. Can be a local path or a URL. Uses YANA_SOURCE environment variable.'
-      Write-Host '  -routine <name>            Specifies the routine to execute within the YANA Module. Uses YANA_ROUTINE environment variable.'
       break
     }
     'verify' {
-      Write-Host 'Usage: yana.ps1 verify -source <path|url> [-routine <name>]'
+      Write-Host 'Usage: yana.ps1 verify -source <path|url>'
       Write-Host '  Compares the state of the system with the state specified by the YANA Module without making any changes.'
       Write-Host 'Options:'
       Write-Host '  -source <path|url>         Specifies the source of YANA Module to verify. Can be a local path or a URL. Uses YANA_SOURCE environment variable.'
-      Write-Host '  -routine <name>            Specifies the routine to execute within the YANA Module. Uses YANA_ROUTINE environment variable.'
       break
     }
     'fetch' {
@@ -130,9 +128,8 @@ function _yana_execute_fn([string]$RootDir = $Script:YANA_SOURCE, [string]$Prefi
     ), $null
   )
 
-  log trace "Function '$local:fullFnName' executed successfully. Output: $($output | ConvertTo-Json -Compress)"
+  log trace "Function '$local:fullFnName' executed successfully"
   $output
-
 }
 # Converts an object to a hashtable recursively.
 function _yana_tohashtable([Parameter(ValueFromPipeline = $true)]$InputObject) {
@@ -149,10 +146,10 @@ function _yana_tohashtable([Parameter(ValueFromPipeline = $true)]$InputObject) {
   }
   Write-Output $resultValue -NoEnumerate:($resultValue -is [Array])
 }
-# Loads and parses the YANA spec file for the specified routine.
-function _yana_load_spec_file([string]$Source, [string]$Routine) {
+# Loads and parses the YANA spec file.
+function _yana_load_spec_file([string]$Source) {
   $_yana_spec_source = [System.IO.Path]::GetFullPath($Source)
-  $_yana_spec_file = [System.IO.Path]::Combine($_yana_spec_source, "$Routine.yana.json")
+  $_yana_spec_file = [System.IO.Path]::Combine($_yana_spec_source, '.yana.json')
   $spec = Get-Content -Path $_yana_spec_file -Raw | ConvertFrom-Json | _yana_tohashtable
   if ($spec -isnot [hashtable]) { throw "Failed to parse YANA spec file '$_yana_spec_file'." }
 
@@ -232,26 +229,33 @@ function _yana_resolve_args([hashtable]$SpecArgs) {
 # Verifies a step from the YANA spec.
 function _yana_verify_step([hashtable]$Step, [string]$RootDir = $Script:YANA_SOURCE) {
   $stepName = $Step['name']
-  $stepFunction = $Step['apply']
-  if ([string]::IsNullOrEmpty($stepFunction)) { log skip "Step '$stepName' has no 'apply' function defined. Skipping." ; return }
-  $stepArgs = $Step['args']
-  if ($null -eq $stepArgs) { $stepArgs = @{} }
-  if ($stepArgs -isnot [hashtable]) { throw "Step '$stepName' 'args' must be an object." }
-  log info "Applying step: $stepName using function: $stepFunction"
-  _yana_execute_fn -RootDir $RootDir -Prefix 'yanaapply' -Name $stepFunction -Arguments $stepArgs
+  $stepFunction = $Step['verify']
+
+  if ($null -eq $stepFunction) { $stepFunction = $Step['apply'] }
+  if ($stepFunction -eq '-') { $stepFunction = '' }
+
+  if ([string]::IsNullOrEmpty($stepFunction)) { log skip "Step '$stepName' has no 'verify' function defined. Skipping." ; return }
+  log info "Verifying step: $stepName using function: $stepFunction"
+  try {
+    _yana_execute_fn -RootDir $RootDir -Prefix 'yanaverify' -Name $stepFunction -Arguments $Step['args']
+  } catch [System.Management.Automation.CommandNotFoundException] {
+    log skip "Verification function '$stepFunction' for step '$stepName' not found. Skipping verification."
+  }
 }
 
 # Applies a step from the YANA spec.
 function _yana_apply_step([hashtable]$Step, [string]$RootDir = $Script:YANA_SOURCE) {
   $stepName = $Step['name']
-  $stepFunction = $Step['apply']
-  if ([string]::IsNullOrEmpty($stepFunction)) { log skip "Step '$stepName' has no 'apply' function defined. Skipping." ; return }
-  # $stepArgs = _yana_resolve_args $Step['args']
-  # if ($null -eq $stepArgs) { $stepArgs = @{} }
-  # if ($stepArgs -isnot [hashtable]) { throw "Step '$stepName' 'args' must be an object." }
-  # _yana_execute_fn -RootDir $RootDir -Prefix 'yanaapply' -Name $stepFunction -Arguments $stepArgs
-  log info "Applying step: $stepName using function: $stepFunction"
-  _yana_execute_fn -RootDir $RootDir -Prefix 'yanaapply' -Name $stepFunction -Arguments $Step['args']
+  $applyFn = $Step['apply']
+  if ([string]::IsNullOrEmpty($applyFn)) { log skip "Step '$stepName' has no 'apply' function defined. Skipping." ; return }
+  $verifyResult = _yana_verify_step -Step $Step -RootDir $RootDir
+  if ($verifyResult) { log success "Step '$stepName' is already compliant. Skipping apply." ; return }
+  log info "Applying step: $stepName using function: $applyFn"
+  _yana_execute_fn -RootDir $RootDir -Prefix 'yanaapply' -Name $applyFn -Arguments $Step['args']
+  $verifyResult = _yana_verify_step -Step $Step -RootDir $RootDir
+  if ($null -eq $verifyResult) { return }
+  if ([bool]$verifyResult) { log success "Step '$stepName' is fully compliant." ; return }
+  throw "Step '$stepName' is not compliant after apply. Verification failed."
 }
 
 function _yana_mode_fetch {
@@ -269,17 +273,19 @@ function _yana_mode_fetch {
 function _yana_mode_apply {
   param(
     # The source of the YANA Module to apply (e.g., a file path or URL).
-    [string]$Source,
-    # The routine of the YANA Module to apply (optional).
-    [string]$Routine
+    [string]$Source
   )
   if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''apply'' mode.' }
   _yana_mode_fetch -Source $Source
   log info "Applying YANA Module from source: $Source"
 
-  $Script:YANA_SOURCE = _yana_load_spec_file -Source $Source -Routine $Routine
+  $Script:YANA_SOURCE = _yana_load_spec_file -Source $Source
   _yana_check_prerequisites -Prerequisites $Script:YANA_REQUIRES
-  foreach ($step in $Script:YANA_STEPS) { _yana_apply_step -Step $step }
+  foreach ($step in $Script:YANA_STEPS) {
+    _yana_apply_step -Step $step
+  }
+  log success "YANA Module applied successfully: $Script:YANA_SOURCE"
+
 
 }
 function _yana_mode_verify {
@@ -287,13 +293,21 @@ function _yana_mode_verify {
   # 	Verifies the state of the system against the specified YANA Module.
   param(
     # The source of the YANA Module to verify (e.g., a file path or URL).
-    [string]$Source,
-    # The routine of the YANA Module to verify (optional).
-    [string]$Routine
+    [string]$Source
   )
   if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''verify'' mode.' }
+  _yana_mode_fetch -Source $Source
   log info "Verifying YANA Module from source: $Source"
-  # Placeholder for actual implementation of verifying the YANA module
+
+  $Script:YANA_SOURCE = _yana_load_spec_file -Source $Source
+  _yana_check_prerequisites -Prerequisites $Script:YANA_REQUIRES
+  foreach ($step in $Script:YANA_STEPS) {
+    $verifyResult = _yana_verify_step -Step $step
+    if ($null -eq $verifyResult) { continue }
+    if ([bool]$verifyResult) { log success "Step '$($step['name'])' is compliant." ; continue }
+    throw "Step '$($step['name'])' is not compliant. Verification failed."
+  }
+  log success "YANA Module verified successfully: $Script:YANA_SOURCE"
 }
 
 function _yana_ {
@@ -308,21 +322,14 @@ function _yana_ {
     # If specified, the source of the YANA Module to apply/verify/fetch.
     # [Parameter(Position = 1)]
     [string]$Source = $Env:YANA_SOURCE,
-    # If specified, the routine of the YANA Module to apply/verify/fetch.
-    # [Parameter(Position = 2)]
-    [string]$Routine = $Env:YANA_ROUTINE,
     # If specified, outputs log messages to the given file.
     # Uses YANA_LOGFILE environment variable if set.
-    [string]$LogFile = $Env:YANA_LOGFILE,
-    # If specified, enables debug level logging.
-    [switch]${-Debug} = $Env:YANA_DEBUG -eq 'true',
-    # If specified, enables trace level logging.
-    [switch]${-Trace} = $Env:YANA_TRACE -eq 'true'
+    [string]$LogFile = $Env:YANA_LOGFILE
   )
   # Disable progress bar output
   $Script:ProgressPreference = 'SilentlyContinue'
   log info "$Script:YANA_TITLE Version: $Script:YANA_VERSION"
-  $Script:YANA_TRACE = $Env:YANA_DEBUG -eq 'true'
+  $Script:YANA_TRACE = $Env:YANA_TRACE -eq 'true'
   $Script:YANA_DEBUG = $Script:YANA_TRACE -or $Env:YANA_DEBUG -eq 'true'
   if ($Script:YANA_TRACE -or $Script:YANA_DEBUG) {
     log debug 'Debug logging is enabled.'
@@ -331,8 +338,8 @@ function _yana_ {
 
   if ($Help) { _yana_usage -Mode $Mode; return }
   switch ($Mode) {
-    'apply' { _yana_mode_apply -Source $Source -Routine $Routine }
-    'verify' { _yana_mode_verify -Source $Source -Routine $Routine }
+    'apply' { _yana_mode_apply -Source $Source }
+    'verify' { _yana_mode_verify -Source $Source }
     'fetch' { _yana_mode_fetch -Source $Source }
     'version' { $Script:YANA_VERSION }
     default { throw "Unknown mode: '$Mode'. Use -help for usage information." }
