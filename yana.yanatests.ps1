@@ -1,17 +1,14 @@
 . "$PSScriptRoot/yana.ps1"
 
-function YANAtest:Invoke-Yana@no_arg {
+function YANAtest:_yana_@no_arg {
   $result = @{exit_code = 0; exception = $null; output = $null }
   $result.output = & {
-    function Out-Colored {}
-    function Out-Help {
-      param([string]$Mode)
-      @{ Command = 'Out-Help'; Args = $PSBoundParameters }
-    }
+    function log {}
+    function _yana_usage([string]$Mode) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
     $local:_YANA_MODE, $local:_YANA_SOURCE = $env:YANA_MODE, $env:YANA_SOURCE
     $env:YANA_MODE, $env:YANA_SOURCE = $null, $null
     try {
-      Invoke-Yana
+      _yana_
     } catch {
       $result.exception, $result.exit_code = $_.Exception, $_.Exception.HResult
     } finally {
@@ -23,32 +20,29 @@ function YANAtest:Invoke-Yana@no_arg {
   if ($result.exit_code -ne 0) {
     pass 'Exit code is correct'
   } else {
-    fail "Expected exit code non-zero but got: $($result.exit_code)"
+    fail "Expected exit code 1 but got: $($result.exit_code)"
   }
   if ($null -ne $result.exception) {
     pass 'Exception is thrown'
-    if ($result.exception.Message -eq 'No mode specified. Use -help to see available modes.') {
+    if ($result.exception.Message -eq 'Unknown mode: ''''. Use -help for usage information.') {
       pass 'Error message is correct'
     } else {
-      fail "Expected error message to contain 'No mode specified. Use -help to see available modes.' but got: $($result.exception.Message)"
+      fail "Expected error message to contain 'Unknown mode: ''. Use -help for usage information.' but got: $($result.exception.Message)"
     }
   } else {
-    fail 'Expected exception to be thrown but got none'
+    fail 'No exception is thrown'
   }
 }
 
-function YANAtest:Invoke-Yana@help_no_mode {
+function YANAtest:_yana_@help_no_mode {
   $result = @{exit_code = 0; exception = $null; output = $null }
   $result.output = & {
-    function Out-Colored {}
-    function Out-Help {
-      param([string]$Mode)
-      @{ Command = 'Out-Help'; Args = $PSBoundParameters }
-    }
+    function log {}
+    function _yana_usage([string]$Mode) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
     $local:_YANA_MODE, $local:_YANA_SOURCE = $env:YANA_MODE, $env:YANA_SOURCE
     $env:YANA_MODE, $env:YANA_SOURCE = $null, $null
     try {
-      Invoke-Yana -help
+      _yana_ -help
     } catch {
       $result.exception, $result.exit_code = $_.Exception, $_.Exception.HResult
     } finally {
@@ -63,38 +57,35 @@ function YANAtest:Invoke-Yana@help_no_mode {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
   if ($result.output.Length -eq 1) {
-    if ($result.output[0].Command -eq 'Out-Help') {
-      pass 'Out-Help is called'
+    if ($result.output[0].Command -eq '_yana_usage') {
+      pass '_yana_usage is called'
     } else {
-      fail "Expected Out-Help to be called but got: $($result.output.Command)"
+      fail "Expected _yana_usage to be called but got: $($result.output.Command)"
     }
     if ([string]::IsNullOrEmpty($result.output[0].Args['Mode'])) {
-      pass 'Out-Help mode is empty'
+      pass '_yana_usage mode is empty'
     } else {
-      fail "Expected Out-Help mode to be empty but got: $($result.output[0].Args['Mode'])"
+      fail "Expected _yana_usage mode to be empty but got: $($result.output[0].Args['Mode'])"
     }
   } else {
-    fail "Expected Out-Help to be called once but got: $($result.output.Length) times"
+    fail "Expected _yana_usage to be called once but got: $($result.output.Length) times"
   }
   if ([string]::IsNullOrEmpty($result.output[0].Args['Mode'])) {
-    pass 'Out-Help mode is empty'
+    pass '_yana_usage mode is empty'
   } else {
-    fail "Expected Out-Help mode to be empty but got: $($result.output[0].Args['Mode'])"
+    fail "Expected _yana_usage mode to be empty but got: $($result.output[0].Args['Mode'])"
   }
 }
 
-function YANAtest:Invoke-Yana@help_with_mode {
+function YANAtest:_yana_@help_with_mode {
   $result = @{exit_code = 0; exception = $null; output = $null }
   $result.output = & {
-    function Out-Colored {}
-    function Out-Help {
-      param([string]$Mode)
-      @{ Command = 'Out-Help'; Args = $PSBoundParameters }
-    }
+    function log {}
+    function _yana_usage([string]$Mode) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
     $local:_YANA_MODE, $local:_YANA_SOURCE = $env:YANA_MODE, $env:YANA_SOURCE
     $env:YANA_MODE, $env:YANA_SOURCE = $null, $null
     try {
-      Invoke-Yana -help -Mode apply
+      _yana_ -help -Mode apply
     } catch {
       $result.exception, $result.exit_code = $_.Exception, $_.Exception.HResult
     } finally {
@@ -109,24 +100,24 @@ function YANAtest:Invoke-Yana@help_with_mode {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
   if ($result.output.Length -eq 1) {
-    if ($result.output[0].Command -eq 'Out-Help') {
-      pass 'Out-Help is called'
+    if ($result.output[0].Command -eq '_yana_usage') {
+      pass '_yana_usage is called'
     } else {
-      fail "Expected Out-Help to be called but got: $($result.output.Command)"
+      fail "Expected _yana_usage to be called but got: $($result.output.Command)"
     }
     if ($result.output[0].Args['Mode'] -eq 'apply') {
-      pass 'Out-Help mode is apply'
+      pass '_yana_usage mode is apply'
     } else {
-      fail "Expected Out-Help mode to be apply but got: $($result.output[0].Args['Mode'])"
+      fail "Expected _yana_usage mode to be apply but got: $($result.output[0].Args['Mode'])"
     }
   } else {
-    fail "Expected Out-Help to be called once but got: $($result.output.Length) times"
+    fail "Expected _yana_usage to be called once but got: $($result.output.Length) times"
   }
 }
 
-function YANAtest:Invoke-Yana@version {
-  function Out-Colored {}
-  $test_result = Invoke-Yana -Version
+function YANAtest:_yana_@version {
+  function log {}
+  $test_result = _yana_ Version
   if ($test_result -eq $Script:YANA_VERSION) {
     pass 'Version output is correct'
   } else {
@@ -134,26 +125,17 @@ function YANAtest:Invoke-Yana@version {
   }
 }
 
-function YANAtest:Invoke-Yana@mode_apply {
+function YANAtest:_yana_@mode_apply {
   $result = @{exit_code = 0; exception = $null; output = $null }
   $result.output = & {
-    function Out-Colored {}
-    function Invoke-YanaApply {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaApply'; Args = $PSBoundParameters }
-    }
-    function Invoke-YanaVerify {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaVerify'; Args = $PSBoundParameters }
-    }
-    function Invoke-YanaFetch {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaFetch'; Args = $PSBoundParameters }
-    }
+    function log {}
+    function _yana_mode_apply([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
+    function _yana_mode_verify([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
+    function _yana_mode_fetch([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
     $local:_YANA_MODE, $local:_YANA_SOURCE = $env:YANA_MODE, $env:YANA_SOURCE
     $env:YANA_MODE, $env:YANA_SOURCE = $null, $null
     try {
-      Invoke-Yana -Mode 'apply' -Source some_source
+      _yana_ -Mode 'apply' -Source some_source
     } catch {
       $result.exception, $result.exit_code = $_.Exception, $_.Exception.HResult
     } finally {
@@ -168,41 +150,32 @@ function YANAtest:Invoke-Yana@mode_apply {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
   if ($result.output.Length -eq 1) {
-    if ($result.output[0].Command -eq 'Invoke-YanaApply') {
-      pass 'Invoke-YanaApply is called'
+    if ($result.output[0].Command -eq '_yana_mode_apply') {
+      pass '_yana_mode_apply is called'
       if ($result.output[0].Args['Source'] -eq 'some_source') {
-        pass 'Invoke-YanaApply source is correct'
+        pass '_yana_mode_apply source is correct'
       } else {
-        fail "Expected Invoke-YanaApply source to be 'some_source' but got: $($result.output[0].Args['Source'])"
+        fail "Expected _yana_mode_apply source to be 'some_source' but got: $($result.output[0].Args['Source'])"
       }
     } else {
-      fail "Expected Invoke-YanaApply to be called but got: $($result.output.Command)"
+      fail "Expected _yana_mode_apply to be called but got: $($result.output[0].Command)"
     }
   } else {
-    fail "Expected Invoke-YanaApply to be called once but got: $($result.output.Length) times"
+    fail "Expected _yana_mode_apply to be called once but got: $($result.output.Length) times"
   }
 }
 
-function YANAtest:Invoke-Yana@mode_verify {
+function YANAtest:_yana_@mode_verify {
   $result = @{exit_code = 0; exception = $null; output = $null }
   $result.output = & {
-    function Out-Colored {}
-    function Invoke-YanaApply {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaApply'; Args = $PSBoundParameters }
-    }
-    function Invoke-YanaVerify {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaVerify'; Args = $PSBoundParameters }
-    }
-    function Invoke-YanaFetch {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaFetch'; Args = $PSBoundParameters }
-    }
+    function log {}
+    function _yana_mode_apply([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
+    function _yana_mode_verify([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
+    function _yana_mode_fetch([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
     $local:_YANA_MODE, $local:_YANA_SOURCE = $env:YANA_MODE, $env:YANA_SOURCE
     $env:YANA_MODE, $env:YANA_SOURCE = $null, $null
     try {
-      Invoke-Yana -Mode 'verify' -Source some_source
+      _yana_ -Mode 'verify' -Source some_source
     } catch {
       $result.exception, $result.exit_code = $_.Exception, $_.Exception.HResult
     } finally {
@@ -217,41 +190,32 @@ function YANAtest:Invoke-Yana@mode_verify {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
   if ($result.output.Length -eq 1) {
-    if ($result.output[0].Command -eq 'Invoke-YanaVerify') {
-      pass 'Invoke-YanaVerify is called'
+    if ($result.output[0].Command -eq '_yana_mode_verify') {
+      pass '_yana_mode_verify is called'
       if ($result.output[0].Args['Source'] -eq 'some_source') {
-        pass 'Invoke-YanaVerify source is correct'
+        pass '_yana_mode_verify source is correct'
       } else {
-        fail "Expected Invoke-YanaVerify source to be 'some_source' but got: $($result.output[0].Args['Source'])"
+        fail "Expected _yana_mode_verify source to be 'some_source' but got: $($result.output[0].Args['Source'])"
       }
     } else {
-      fail "Expected Invoke-YanaVerify to be called but got: $($result.output.Command)"
+      fail "Expected _yana_mode_verify to be called but got: $($result.output[0].Command)"
     }
   } else {
-    fail "Expected Invoke-YanaVerify to be called once but got: $($result.output.Length) times"
+    fail "Expected _yana_mode_verify to be called once but got: $($result.output.Length) times"
   }
 }
 
-function YANAtest:Invoke-Yana@mode_fetch {
+function YANAtest:_yana_@mode_fetch {
   $result = @{exit_code = 0; exception = $null; output = $null }
   $result.output = & {
-    function Out-Colored {}
-    function Invoke-YanaApply {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaApply'; Args = $PSBoundParameters }
-    }
-    function Invoke-YanaVerify {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaVerify'; Args = $PSBoundParameters }
-    }
-    function Invoke-YanaFetch {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaFetch'; Args = $PSBoundParameters }
-    }
+    function log {}
+    function _yana_mode_apply([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
+    function _yana_mode_verify([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
+    function _yana_mode_fetch([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
     $local:_YANA_MODE, $local:_YANA_SOURCE = $env:YANA_MODE, $env:YANA_SOURCE
     $env:YANA_MODE, $env:YANA_SOURCE = $null, $null
     try {
-      Invoke-Yana -Mode 'fetch' -Source some_source
+      _yana_ -Mode 'fetch' -Source some_source
     } catch {
       $result.exception, $result.exit_code = $_.Exception, $_.Exception.HResult
     } finally {
@@ -266,41 +230,32 @@ function YANAtest:Invoke-Yana@mode_fetch {
     fail "Expected exit code 0 but got: $($result.exit_code)"
   }
   if ($result.output.Length -eq 1) {
-    if ($result.output[0].Command -eq 'Invoke-YanaFetch') {
-      pass 'Invoke-YanaFetch is called'
+    if ($result.output[0].Command -eq '_yana_mode_fetch') {
+      pass '_yana_mode_fetch is called'
       if ($result.output[0].Args['Source'] -eq 'some_source') {
-        pass 'Invoke-YanaFetch source is correct'
+        pass '_yana_mode_fetch source is correct'
       } else {
-        fail "Expected Invoke-YanaFetch source to be 'some_source' but got: $($result.output[0].Args['Source'])"
+        fail "Expected _yana_mode_fetch source to be 'some_source' but got: $($result.output[0].Args['Source'])"
       }
     } else {
-      fail "Expected Invoke-YanaFetch to be called but got: $($result.output.Command)"
+      fail "Expected _yana_mode_fetch to be called but got: $($result.output[0].Command)"
     }
   } else {
-    fail "Expected Invoke-YanaFetch to be called once but got: $($result.output.Length) times"
+    fail "Expected _yana_mode_fetch to be called once but got: $($result.output.Length) times"
   }
 }
 
-function YANAtest:Invoke-Yana@invalid_mode {
+function YANAtest:_yana_@invalid_mode {
   $result = @{exit_code = 0; exception = $null; output = $null }
   $result.output = & {
-    function Out-Colored {}
-    function Invoke-YanaApply {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaApply'; Args = $PSBoundParameters }
-    }
-    function Invoke-YanaVerify {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaVerify'; Args = $PSBoundParameters }
-    }
-    function Invoke-YanaFetch {
-      param([string]$Source)
-      @{ Command = 'Invoke-YanaFetch'; Args = $PSBoundParameters }
-    }
+    function log {}
+    function _yana_mode_apply([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
+    function _yana_mode_verify([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
+    function _yana_mode_fetch([string]$Source) { @{ Command = $MyInvocation.MyCommand.Name; Args = $PSBoundParameters } }
     $local:_YANA_MODE, $local:_YANA_SOURCE = $env:YANA_MODE, $env:YANA_SOURCE
     $env:YANA_MODE, $env:YANA_SOURCE = $null, $null
     try {
-      Invoke-Yana -Mode 'unknown' -Source some_source
+      _yana_ -Mode 'unknown' -Source some_source
     } catch {
       $result.exception, $result.exit_code = $_.Exception, $_.Exception.HResult
     } finally {
@@ -321,28 +276,27 @@ function YANAtest:Invoke-Yana@invalid_mode {
   }
   if ($null -ne $result.exception) {
     pass 'Exception is thrown'
-    if ($result.exception.Message -eq "Unknown mode: unknown. Use -help to see available modes.") {
+    if ($result.exception -is [System.Management.Automation.ParameterBindingException]) {
       pass 'Error message is correct'
     } else {
-      fail "Expected error message to contain 'Unknown mode: unknown. Use -help to see available modes.' but got: $($result.exception.Message)"
+      fail "Expected error message to be of type 'System.Management.Automation.ParameterBindingException' but got: $($result.exception.GetType().FullName)"
     }
   } else {
     fail 'Expected exception to be thrown but got none'
   }
 }
 
-function YANAtest:Invoke-Yana@env_vars {
+function YANAtest:_yana_@env_vars {
   $result = @{exit_code = 0; exception = $null; output = $null }
   $result.output = & {
-    function Out-Colored {}
-    function Invoke-YanaApply {
-      param([string]$Source)
-      "apply: '$Source'"
-    }
+    function log {}
+    function _yana_mode_apply([string]$Source) { "apply: '$Source'" }
+    function _yana_mode_verify([string]$Source) { "verify: '$Source'" }
+    function _yana_mode_fetch([string]$Source) { "fetch: '$Source'" }
     $local:_YANA_MODE, $local:_YANA_SOURCE = $env:YANA_MODE, $env:YANA_SOURCE
     $env:YANA_MODE, $env:YANA_SOURCE = 'apply', 'some_source'
     try {
-      Invoke-Yana
+      _yana_
     } catch {
       $result.exception, $result.exit_code = $_.Exception, $_.Exception.HResult
     } finally {
