@@ -7,147 +7,258 @@
 Set-Variable -Name YANA_TITLE -Value 'YANA - Yet Another Node Automator (PowerShell)' -Option Constant -Scope Script -ErrorAction:Ignore
 Set-Variable -Name YANA_VERSION -Value 'YANAVERSIONPLACEHOLDER' -Option Constant -Scope Script -ErrorAction:Ignore
 
-function Out-Colored {
-  # .SYNOPSIS
-  # 	Outputs colored text to the output stream.
-  # 	Takes care of logging to a file if $LogFile is specified.
-  # 	If $Quiet is specified, suppresses output.
-  # 	If $NoColor is specified, disables colored output.
-  param(
-    # The color of the text (e.g., 'Red', 'Green', 'Blue').
-    [string]$Color,
-    # The main message to display.
-    [string]$Message,
-    # Additional details to display (optional). Will be displayed in dimmed color.
-    [string]$MessageDetail = ''
-  )
-  if ($Message.Length -gt 0) { $Message = "$Message " }
-  if ($LogFile) {
-    $logMessage = "[$([datetime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))] ${Message}${MessageDetail}"
-    try {
-      Add-Content -Path $LogFile -Value $logMessage -Force -ErrorAction Stop
-    } catch {
-      Write-Warning "Failed to write to log file '$($LogFile)': $($_.Exception.Message)"
-    }
-  }
-  if ($Quiet) { return }
-  if ($NoColor) {
-    $message = "${Message}$MessageDetail"
-  } else {
-    $colorCode = switch ($Color) {
-      'Black' { 30 }
-      'Red' { 31 }
-      'Green' { 32 }
-      'Yellow' { 33 }
-      'Blue' { 34 }
-      'Magenta' { 35 }
-      'Cyan' { 36 }
-      'White' { 37 }
-      default { 0 } # Default to no color
-    }
-    $ansiEscape = [char]27
-    "${ansiEscape}[${colorCode}m${Message}${ansiEscape}[2m${MessageDetail}${ansiEscape}[0m"
-  }
-}
-function Out-ColoredStdout {
-  # .SYNOPSIS
-  # 	Outputs colored text to the standard output.
-  if ($local:output = Out-Colored @args) { [Console]::Out.WriteLine($local:output)	}
-}
-function Out-ColoredStderr {
-  # .SYNOPSIS
-  # 	Outputs colored text to the standard error.
-  if ($local:output = Out-Colored @args) { [Console]::Error.WriteLine($local:output)	}
-}
-
-function Out-Help {
-  # .SYNOPSIS
-  # 	Outputs help information for the specified mode.
-  #   If mode is not specified, displays general help information.
-  param(
-    # The mode for which to display help information (e.g., 'apply', 'verify', 'fetch').
-    [string]$Mode
-  )
+# Outputs help information for the specified mode.
+# If mode is not specified, displays general help information.
+function _yana_usage([string]$Mode) {
   switch ($Mode) {
     'apply' {
-      Write-Host @'
-Usage: yana.ps1 apply <options>
-  Applies the specified YANA Module.
-
-Options:
-  -source <path|url>         Specifies the source of YANA Module to apply.
-'@
+      Write-Host 'Usage: yana.ps1 apply -source <path|url>'
+      Write-Host '  Applies the specified YANA Module.'
+      Write-Host 'Options:'
+      Write-Host '  -source <path|url>         Specifies the source of YANA Module to apply. Can be a local path or a URL. Uses YANA_SOURCE environment variable.'
       break
     }
     'verify' {
-      Write-Host @'
-Usage: yana.ps1 verify <options>
-  Compares the state of the system with the state specified by the YANA Module without making any changes.
-
-Options:
-  -source <path|url>         Specifies the source of YANA Module to verify.
-'@
+      Write-Host 'Usage: yana.ps1 verify -source <path|url>'
+      Write-Host '  Compares the state of the system with the state specified by the YANA Module without making any changes.'
+      Write-Host 'Options:'
+      Write-Host '  -source <path|url>         Specifies the source of YANA Module to verify. Can be a local path or a URL. Uses YANA_SOURCE environment variable.'
       break
     }
     'fetch' {
-      Write-Host @'
-Usage: yana.ps1 fetch <options>
-  Fetches the specified YANA Module.
-
-Options:
-  -source <path|url>         Specifies the source of YANA Module to fetch.
-'@
-      break
+      Write-Host 'Usage: yana.ps1 fetch -source <path|url>'
+      Write-Host '  Fetches the specified YANA Module from the given source (path or URL).'
+      Write-Host 'Options:'
+      Write-Host '  -source <path|url>         Specifies the source of YANA Module to fetch. Can be path or URL. Uses YANA_SOURCE environment variable.'
+    }
+    'version' {
+      Write-Host 'Usage: yana.ps1 version'
+      Write-Host '  Displays the version of YANA.'
     }
     default {
-      Write-Host @'
-Usage: yana.ps1 <general options> [mode] <mode options>
-
-Modes:
-  apply                      Applies the specified YANA Module.
-  verify                     Compares the state of the system with the state specified by the YANA Module without making any changes.
-  fetch                      Fetches the specified YANA Module.
-'@
+      Write-Host 'Usage: yana.ps1 <general options> [mode] <mode options>'
+      Write-Host 'Modes:'
+      Write-Host '  version                    Displays the version of YANA.'
+      Write-Host '  apply                      Applies the specified YANA Module.'
+      Write-Host '  verify                     Compares the state of the system with the state specified by the YANA Module without making any changes.'
+      Write-Host '  fetch                      Fetches the specified YANA Module.'
     }
   }
-  Write-Host @'
-
-General Options:
-  -version                   Displays the version of YANA.
-  -help                      Displays this help message.
-  -help <mode>               Displays help for the specified mode.
-  -logfile <path>            Log file path. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file.
-  -quiet                     Suppresses output messages. Uses YANA_QUIET environment variable if set.
-  -nocolor                   Disables colored output. Uses YANA_NOCOLOR environment variable if set.
-'@
+  Write-Host 'General Options:'
+  Write-Host '  -help                      Displays this help message.'
+  Write-Host '  -help <mode>               Displays help for the specified mode.'
+  Write-Host '  -logfile <file>            Log file path. Uses YANA_LOGFILE environment variable. If not specified, logs are not written to a file.'
 
 }
+# Logs a message with the specified level and message.
+# If the level is 'trace' or 'debug', the message is logged only if the corresponding switch is enabled.
+# If a log file is specified, the message is also written to the log file.
+function log([string]$Level, [string]$Message) {
+  if ($Level -eq 'trace' -and $Script:YANA_TRACE -ne $true) { return }
+  if ($Level -eq 'debug' -and $Script:YANA_DEBUG -ne $true) { return }
+  $logMessage = "[$([datetime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))]`t$($Level.ToUpper())`t$Message"
+  try {
+    if ($level -in @('trace', 'debug')) { [Console]::ForegroundColor = [ConsoleColor]::DarkGray }
+    elseif ($level -eq 'info') { [Console]::ForegroundColor = [ConsoleColor]::Cyan }
+    elseif ($level -in @('ok', 'success', 'pass')) { [Console]::ForegroundColor = [ConsoleColor]::DarkGreen }
+    elseif ($level -in @('skip')) { [Console]::ForegroundColor = [ConsoleColor]::Yellow }
+    elseif ($level -in @('warn', 'warning')) { [Console]::ForegroundColor = [ConsoleColor]::DarkYellow }
+    elseif ($level -in @('fail', 'failure', 'error')) { [Console]::ForegroundColor = [ConsoleColor]::Red }
+    elseif ($level -eq 'fatal') { [Console]::ForegroundColor = [ConsoleColor]:: DarkRed }
+    [Console]::Error.WriteLine($logMessage)
+  } finally { [Console]::ResetColor() }
+  if ($LogFile) {
+    try {
+      Add-Content -Path $LogFile -Value $logMessage -Force -ErrorAction Stop
+    } catch {
+      $LogFile = $null
+      throw "Failed to write to log file '$LogFile': $($_.Exception.Message)"
+    }
+  }
+}
+# Checks for required prerequisites and throws an error if any are missing.
+function _yana_check_prerequisites([string[]]$Prerequisites) {
+  foreach ($prerequisite in $Prerequisites) {
+    if (-not (Get-Command $prerequisite -ErrorAction SilentlyContinue)) {
+      throw "Prerequisite '$prerequisite' is not installed or not in the system PATH."
+    }
+    log debug "Prerequisite '$prerequisite' is installed."
+  }
+}
 
-function Invoke-YanaApply {
+# Executes a function with the specified prefix and name.
+function _yana_execute_fn([string]$RootDir = $Script:YANA_SOURCE, [string]$Prefix, [string]$Name, [hashtable]$Arguments) {
   # .SYNOPSIS
-  # 	Applies the specified YANA Module.
-  param(
-    # The source of the YANA Module to apply (e.g., a file path or URL).
-    [string]$Source
+  # 	Executes a function with the specified prefix and name.
+
+  # Parse function name. Format: `[module/]script:function`
+  # Module and script supports alphanumeric characters, underscores, hyphens, and dots.
+  # Function supports only alphanumeric characters and underscores.
+  if ($Name -match '^((?<module>[a-zA-Z0-9][a-zA-Z0-9_\.-]*)/)?(?<script>[a-zA-Z0-9][a-zA-Z0-9_\.-]*)\:(?<function>[a-zA-Z0-9_]+)$') {
+    $local:fnModule = $matches['module']
+    $local:fnScript = $matches['script']
+    $local:fnFunction = $matches['function']
+  } else {
+    throw "Invalid function name: '$Name'. Expected format: '[module/]script:function'."
+  }
+
+  $fnArgs = _yana_resolve_args $Arguments
+
+  $local:fullFnName = "${Prefix}_${local:fnFunction}"
+  log debug "Executing function '$local:fullFnName' from module '$local:fnModule', script '$local:fnScript' with arguments: $($fnArgs | ConvertTo-Json -Compress)"
+  $sb = {
+    Get-Item @(
+      ([System.IO.Path]::Combine($YANA_SOURCE, '.yana', '*', '.ps1')),
+      ([System.IO.Path]::Combine($YANA_SOURCE, '.yana', '.ps1')),
+      ([System.IO.Path]::Combine($YANA_SOURCE, '.yana', $fnModule, "$fnScript.ps1"))
+    ) -Force -ErrorAction Ignore | ForEach-Object {
+      log trace "Loading script: $($_.FullName)"
+      . $_.FullName }
+    log trace "Invoking function '$YANA_COMMAND' with arguments: $($YANA_ARGS | ConvertTo-Json -Compress)"
+    & $YANA_COMMAND @YANA_ARGS
+  }
+  $output = $sb.InvokeWithContext(
+    @{
+      log = (Get-Command log).ScriptBlock
+    },
+    @(
+      [psvariable]::new('YANA_COMMAND', $local:fullFnName, 'ReadOnly'),
+      [psvariable]::new('YANA_ARGS', $fnArgs, 'ReadOnly'),
+      [psvariable]::new('YANA_SOURCE', $RootDir, 'ReadOnly')
+    ), $null
   )
-  if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''apply'' mode.' }
-  Out-ColoredStderr -Color 'Magenta' -Message "Applying YANA Module from source: $Source"
-  # Placeholder for actual implementation of applying the YANA module
+
+  log trace "Function '$local:fullFnName' executed successfully"
+  $output
+}
+# Converts an object to a hashtable recursively.
+function _yana_tohashtable([Parameter(ValueFromPipeline = $true)]$InputObject) {
+  $resultValue = @{}
+  if ($InputObject -is [System.Collections.IDictionary]) {
+    foreach ($key in $InputObject.Keys) { $resultValue[$key] = _yana_tohashtable($InputObject[$key]) }
+  } elseif ($InputObject -is [System.Collections.ICollection]) {
+    $resultValue = @()
+    $InputObject | ForEach-Object { $resultValue += _yana_tohashtable($_) }
+  } elseif ($InputObject -is [System.Management.Automation.PSCustomObject]) {
+    foreach ($prop in $InputObject.PSObject.Properties) { $resultValue[$prop.Name] = _yana_tohashtable($prop.Value) }
+  } else {
+    $resultValue = $InputObject
+  }
+  Write-Output $resultValue -NoEnumerate:($resultValue -is [Array])
+}
+# Loads and parses the YANA spec file.
+function _yana_load_spec_file([string]$Source) {
+  $_yana_spec_source = [System.IO.Path]::GetFullPath($Source)
+  $_yana_spec_file = [System.IO.Path]::Combine($_yana_spec_source, '.yana.json')
+  $spec = Get-Content -Path $_yana_spec_file -Raw | ConvertFrom-Json | _yana_tohashtable
+  if ($spec -isnot [hashtable]) { throw "Failed to parse YANA spec file '$_yana_spec_file'." }
+
+  $Script:YANA_SPEC = @{
+    name        = $spec['name']
+    description = $spec['description']
+    version     = $spec['version']
+    author      = $spec['author']
+    license     = $spec['license']
+  }
+  $Script:YANA_REQUIRES = $spec['requires']
+  if ($null -eq $Script:YANA_REQUIRES) { $Script:YANA_REQUIRES = @() }
+  if ($Script:YANA_REQUIRES -isnot [array]) { throw "Spec field 'requires' must be an array." }
+  $Script:YANA_STEPS = $spec['steps']
+  if ($null -eq $Script:YANA_STEPS) { $Script:YANA_STEPS = @() }
+  if ($Script:YANA_STEPS -isnot [array]) { throw "Spec field 'steps' must be an array." }
+  $Script:YANA_PARAMS = $spec['params']
+  if ($null -eq $Script:YANA_PARAMS) { $Script:YANA_PARAMS = @{} }
+  if ($Script:YANA_PARAMS -isnot [hashtable]) { throw "Spec field 'params' must be an object." }
+  $Script:YANA_VARS = $spec['vars']
+  if ($null -eq $Script:YANA_VARS) { $Script:YANA_VARS = @{} }
+  if ($Script:YANA_VARS -isnot [hashtable]) { throw "Spec field 'vars' must be an object." }
+  $_yana_spec_source
+}
+function _yana_expand_var([string]$VarName, [hashtable]$Vars) {
+  if (-not $Vars.ContainsKey($VarName)) { throw "Variable '$VarName' is not defined." }
+  $output = $Vars[$VarName]
+  if ($output -is [hashtable]) {
+    $cached = $output['cached']
+    log trace "Resolving variable '$VarName'"
+    # $fnArgs=_yana_resolve_args $output['args']
+    $output = _yana_execute_fn -RootDir $Script:YANA_SOURCE -Prefix 'yanavar' -Name $output['fn'] -Arguments $output['args']
+    if ($cached -eq $true) {
+      log trace "Caching resolved value for variable '$VarName' as '$output'"
+      $Vars[$VarName] = $output
+    }
+  }
+  $output
+}
+function _yana_expand_param([string]$ParamName, [hashtable]$Params) {
+  if (-not $Params.ContainsKey($ParamName)) { throw "Parameter '$ParamName' is not defined." }
+  $Params[$ParamName]
+}
+# Resolves variable placeholders in the input string.
+function _yana_expand_string([Parameter(ValueFromPipeline = $true)][string]$InputString, [hashtable]$Params, [hashtable]$Vars) {
+  $Script:MaxNestingDepth = 50
+  if ((Get-PSCallStack).Count -gt $Script:MaxNestingDepth) { throw "Maximum nesting depth of $Script:MaxNestingDepth exceeded while expanding string." }
+  $_iteration = 0
+  log debug "Expanding string '$InputString'"
+  while ($InputString -match '\$\{(?<ctx>param|var):(?<name>[a-zA-Z0-9_]+)\}') {
+    $_iteration++
+    if ($_iteration -gt $Script:MaxNestingDepth) { throw "Maximum nesting depth of $Script:MaxNestingDepth exceeded while expanding string." }
+    $placeholder = $Matches[0]
+    $ctx = $Matches['ctx']
+    $name = $Matches['name']
+    if ($ctx -eq 'param') { $value = _yana_expand_param -ParamName $name -Params $Params }
+    elseif ($ctx -eq 'var') { $value = _yana_expand_var -VarName $name -Vars $Vars }
+    else { throw "Unknown context '$ctx' in placeholder '$placeholder'." }
+    $InputString = $InputString.Replace($placeholder, $value)
+    log trace "Resolved placeholder '$placeholder' to value '$value'"
+  }
+  $InputString
 }
 
-function Invoke-YanaVerify {
-  # .SYNOPSIS
-  # 	Verifies the state of the system against the specified YANA Module.
-  param(
-    # The source of the YANA Module to verify (e.g., a file path or URL).
-    [string]$Source
-  )
-  if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''verify'' mode.' }
-  Out-ColoredStderr -Color 'Magenta' -Message "Verifying YANA Module from source: $Source"
-  # Placeholder for actual implementation of verifying the YANA module
+function _yana_resolve_args([hashtable]$SpecArgs) {
+  $resolvedArgs = @{}
+  foreach ($key in $SpecArgs.Keys) {
+    $value = $SpecArgs[$key]
+    if ($value -is [string]) {
+      $resolvedArgs[$key] = _yana_expand_string -InputString $value -Params $Script:YANA_PARAMS -Vars $Script:YANA_VARS
+    } else {
+      $resolvedArgs[$key] = $value | convertto-json -Compress -Depth 5 | _yana_expand_string -Params $Script:YANA_PARAMS -Vars $Script:YANA_VARS
+    }
+  }
+  $resolvedArgs
+}
+# Verifies a step from the YANA spec.
+function _yana_verify_step([hashtable]$Step, [string]$RootDir = $Script:YANA_SOURCE) {
+  $stepName = $Step['name']
+  $stepFunction = $Step['verify']
+
+  if ($null -eq $stepFunction) { $stepFunction = $Step['apply'] }
+  if ($stepFunction -eq '-') { $stepFunction = '' }
+
+  if ([string]::IsNullOrEmpty($stepFunction)) { log skip "Step '$stepName' has no 'verify' function defined. Skipping." ; return }
+  log info "Verifying step: $stepName using function: $stepFunction"
+  try {
+    _yana_execute_fn -RootDir $RootDir -Prefix 'yanaverify' -Name $stepFunction -Arguments $Step['args']
+  } catch [System.Management.Automation.CommandNotFoundException] {
+    log skip "Verification function '$stepFunction' for step '$stepName' not found. Skipping verification."
+  }
 }
 
-function Invoke-YanaFetch {
+# Applies a step from the YANA spec.
+function _yana_apply_step([hashtable]$Step, [string]$RootDir = $Script:YANA_SOURCE) {
+  $stepName = $Step['name']
+  $applyFn = $Step['apply']
+  if ([string]::IsNullOrEmpty($applyFn)) { log skip "Step '$stepName' has no 'apply' function defined. Skipping." ; return }
+  $verifyResult = _yana_verify_step -Step $Step -RootDir $RootDir
+  if ($verifyResult) { log success "Step '$stepName' is already compliant. Skipping apply." ; return }
+  log info "Applying step: $stepName using function: $applyFn"
+  _yana_execute_fn -RootDir $RootDir -Prefix 'yanaapply' -Name $applyFn -Arguments $Step['args']
+  $verifyResult = _yana_verify_step -Step $Step -RootDir $RootDir
+  if ($null -eq $verifyResult) { return }
+  if ([bool]$verifyResult) { log success "Step '$stepName' is fully compliant." ; return }
+  throw "Step '$stepName' is not compliant after apply. Verification failed."
+}
+
+function _yana_mode_fetch {
   # .SYNOPSIS
   # 	Fetches the specified YANA Module.
   param(
@@ -155,70 +266,94 @@ function Invoke-YanaFetch {
     [string]$Source
   )
   if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''fetch'' mode.' }
-  Out-ColoredStderr -Color 'Magenta' -Message "Fetching YANA Module from source: $Source"
+  log info "Fetching YANA Module from source: $Source"
   # Placeholder for actual implementation of fetching the YANA module
 }
+#	Applies the specified YANA Module.
+function _yana_mode_apply {
+  param(
+    # The source of the YANA Module to apply (e.g., a file path or URL).
+    [string]$Source
+  )
+  if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''apply'' mode.' }
+  _yana_mode_fetch -Source $Source
+  log info "Applying YANA Module from source: $Source"
 
-function Invoke-Yana {
+  $Script:YANA_SOURCE = _yana_load_spec_file -Source $Source
+  _yana_check_prerequisites -Prerequisites $Script:YANA_REQUIRES
+  foreach ($step in $Script:YANA_STEPS) {
+    _yana_apply_step -Step $step
+  }
+  log success "YANA Module applied successfully: $Script:YANA_SOURCE"
+
+
+}
+function _yana_mode_verify {
+  # .SYNOPSIS
+  # 	Verifies the state of the system against the specified YANA Module.
+  param(
+    # The source of the YANA Module to verify (e.g., a file path or URL).
+    [string]$Source
+  )
+  if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''verify'' mode.' }
+  _yana_mode_fetch -Source $Source
+  log info "Verifying YANA Module from source: $Source"
+
+  $Script:YANA_SOURCE = _yana_load_spec_file -Source $Source
+  _yana_check_prerequisites -Prerequisites $Script:YANA_REQUIRES
+  foreach ($step in $Script:YANA_STEPS) {
+    $verifyResult = _yana_verify_step -Step $step
+    if ($null -eq $verifyResult) { continue }
+    if ([bool]$verifyResult) { log success "Step '$($step['name'])' is compliant." ; continue }
+    throw "Step '$($step['name'])' is not compliant. Verification failed."
+  }
+  log success "YANA Module verified successfully: $Script:YANA_SOURCE"
+}
+
+function _yana_ {
   # .SYNOPSIS
   # 	The main entry point for YANA.
   param(
-    # If specified, outputs the version and exits.
-    [switch]$Version,
     # If specified, outputs help information and exits.
     [switch]$Help,
     [Parameter(Position = 0)]
+    [ValidateSet('apply', 'verify', 'fetch', 'version')]
     [string]$Mode = $Env:YANA_MODE,
-    [Parameter(Position = 1)]
+    # If specified, the source of the YANA Module to apply/verify/fetch.
+    # [Parameter(Position = 1)]
     [string]$Source = $Env:YANA_SOURCE,
     # If specified, outputs log messages to the given file.
     # Uses YANA_LOGFILE environment variable if set.
-    [string]$LogFile = $Env:YANA_LOGFILE,
-    # If specified, suppresses output messages.
-    # Uses YANA_QUIET environment variable if set.
-    [switch]$Quiet = "$Env:YANA_QUIET" -notin ('0', 'false', ''),
-    # If specified, disables colored output.
-    # Uses YANA_NOCOLOR environment variable if set.
-    [switch]$NoColor = "$Env:YANA_NOCOLOR" -notin ('0', 'false', '')
+    [string]$LogFile = $Env:YANA_LOGFILE
   )
   # Disable progress bar output
   $Script:ProgressPreference = 'SilentlyContinue'
+  log info "$Script:YANA_TITLE Version: $Script:YANA_VERSION"
+  $Script:YANA_TRACE = $Env:YANA_TRACE -eq 'true'
+  $Script:YANA_DEBUG = $Script:YANA_TRACE -or $Env:YANA_DEBUG -eq 'true'
+  if ($Script:YANA_TRACE -or $Script:YANA_DEBUG) {
+    log debug 'Debug logging is enabled.'
+    $script:VerbosePreference = 'Continue'
+  }
 
-  Out-ColoredStderr -Message $Script:YANA_TITLE -MessageDetail "Version: $Script:YANA_VERSION"
-
-  if ($Help) { Out-Help -Mode $Mode; return }
-  if ($Version) { Write-Output $Script:YANA_VERSION; return }
+  if ($Help) { _yana_usage -Mode $Mode; return }
   switch ($Mode) {
-    'apply' {
-      Invoke-YanaApply -Source $Source
-      break
-    }
-    'verify' {
-      Invoke-YanaVerify -Source $Source
-      break
-    }
-    'fetch' {
-      Invoke-YanaFetch -Source $Source
-      break
-    }
-    '' {
-      throw 'No mode specified. Use -help to see available modes.'
-    }
-    default {
-      throw "Unknown mode: $Mode. Use -help to see available modes."
-    }
+    'apply' { _yana_mode_apply -Source $Source }
+    'verify' { _yana_mode_verify -Source $Source }
+    'fetch' { _yana_mode_fetch -Source $Source }
+    'version' { $Script:YANA_VERSION }
+    default { throw "Unknown mode: '$Mode'. Use -help for usage information." }
   }
 }
 
 # Prevent running when dot-sourced
 if ($MyInvocation.InvocationName -ne '.') {
+  $ErrorActionPreference = 'Stop'
   try {
-    Invoke-Yana @args
+    _yana_ @args
   } catch {
-    $_fc = [Console]::ForegroundColor
-    [Console]::ForegroundColor = 'Red'
-    [Console]::Error.WriteLine("Error: $($_.Exception.Message)")
-    [Console]::ForegroundColor = $_fc
+    log fatal $_.Exception.Message
+    $_.ScriptStackTrace | ForEach-Object { log stack $_ }
     exit 1
   }
 }
