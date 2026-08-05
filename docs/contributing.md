@@ -1,8 +1,3 @@
----
-title: Contributing
-nav_order: 9
----
-
 # Contributing
 
 Contributions to YANA and YANA Modules are welcome.

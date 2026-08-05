@@ -1,13 +1,12 @@
 ---
-title: Home
-nav_order: 1
+title: About YANA
 ---
 
 # YANA - Yet Another Node Automator
 
-**YANA** is an extremely small and simple, yet powerful and extensible Configuration Management and Automation tool written in pure PowerShell (for Windows systems) and Bash (for Unix-like systems).
+**YANA** is an extremely small and simple, yet powerful and extensible Configuration Management and Automation tool written in pure PowerShell (for Windows systems) and Bash (for Unix-like systems). Both versions provide full feature parity and are fully compatible with each other.
 
-No magic, no hidden dependencies, no black boxes, no new programming language to learn - only PowerShell/Bash, YAML and your favorite text editor.
+No magic, no hidden dependencies, no black boxes, no new programming languages or complex DSLs to learn - only PowerShell/Bash, YAML and your favorite text editor.
 
 **YANA** is designed to be lightweight, simple, fast and easy to use.
 
@@ -19,13 +18,3 @@ No unnecessary features, no bloat, no complexity.
 - **DRY** - *Don't Repeat Yourself.* YANA is modular and reusable.
 Keep your blueprints and modules small, modular, focused and reusable.
 Use existing blueprints and modules whenever possible.
-
-## Documentation
-
-- [Getting Started](getting-started.md) - Install YANA and run your first automation
-- [Concepts](concepts.md) - Engine, Toolkit, yanapacks and the overall architecture
-- [Blueprints and Modules](blueprints.md) - Authoring blueprint files and module structure
-- [Functions: Helpers, Actions, Verifiers](functions.md) - Writing and organizing YANA functions
-- [Routines and Events](routines-events.md) - Structuring execution and reacting to lifecycle events
-- [Testing Framework](testing.md) - Writing and running tests for your actions and helpers
-- [Contributing](contributing.md) - How to contribute to YANA

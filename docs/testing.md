@@ -1,27 +1,28 @@
----
-title: Testing Framework
-parent: Concepts
-nav_order: 7
----
-
 # YANA Testing Framework
 
 YANA includes a lightweight built-in testing framework for PowerShell and Bash.
-Tests live in `.ps1` or `.sh` files. They can be defined in the same script file with tested code (prefer this way) or in separate `yanatests` files.
+Tests live in `.yanatests.ps1` or `.yanatests.sh` files. They can be defined in the same script file with tested code or in separate `yanatests` files - up to your preference.
 
 ## Overview
 
-YANA Testing Framework is assertion-based. Each test function calls `pass` or `fail` to record results.
-The runner sources script files and discovers all test functions using the naming convention described below, executes them and outputs a summary.
+YANA Testing Framework is assertion-based. Every test function prepares the environment and mocks, executes tests and collects the results, then calls `pass` or `fail` to record results.
+The framework sources script files and discovers all test functions using the naming convention described below, executes them and outputs a summary.
 Tests are standard PowerShell/Bash functions which safely call the tested functions and inspect their results and outputs.
 
 You fully control what and how to test - no magic, no complex testing frameworks, no DSLs.
 
 ## Test File Conventions
 
-- Prefer to co-locate tests with the code they test in the same script file.
 - If you prefer or need to separate tests from code, put them into files named as `<script>.yanatests.ps1` or `<script>.yanatests.sh`.
-- Dot-source the script under test at the top of the file: `. "$PSScriptRoot/myscript.ps1"` (PowerShell) or `. "${BASH_SOURCE[0]%/*}/myscript.sh"` (Bash).
+- Dot-source the script under test at the top of your `yanatests` file:
+=== "PowerShell (Windows)"
+    ```powershell
+    . "$PSScriptRoot/myscript.ps1"
+    ```
+=== "Bash (Linux/macOS)"
+    ```bash
+    . "${BASH_SOURCE[0]%/*}/myscript.sh"
+    ```
 
 ## Test Function Naming
 
@@ -30,53 +31,48 @@ Test functions follow a strict naming convention `YANAtest:<function>[@<scenario
 - `<function>` - the name of the function or feature being tested.
 - `@<scenario>` - (optional) a short description of the specific case being tested.
 
-PowerShell example:
-
-```powershell
-function YANAtest:MyCommand { ... }
-function YANAtest:MyCommand@handles_empty_input { ... }
-```
-
-Bash example:
-
-```bash
-function YANAtest:my_command { ... }
-function YANAtest:my_command@handles_empty_input { ... }
-```
+=== "PowerShell (Windows)"
+    ```powershell
+    function YANAtest:MyCommand { ... }
+    function YANAtest:MyCommand@handles_empty_input { ... }
+    ```
+=== "Bash (Linux/macOS)"
+    ```bash
+    function YANAtest:my_command { ... }
+    function YANAtest:my_command@handles_empty_input { ... }
+    ```
 
 ## Writing Tests
 
 Inside a test function, use `pass` and `fail` to record assertions.
 
-PowerShell example:
-
-```powershell
-function YANAtest:MyCommand@returns_expected_value {
-    $result = MyCommand -Arg 'hello'
-    if ($result -eq 'expected') {
-        pass 'Returns expected value'
-    } else {
-        fail "Got unexpected value: $result"
+=== "PowerShell (Windows)"
+    ```powershell
+    function YANAtest:MyCommand@returns_expected_value {
+        $result = MyCommand -Arg 'hello'
+        if ($result -eq 'expected') {
+            pass 'Returns expected value'
+        } else {
+            fail "Got unexpected value: $result"
+        }
     }
-}
-```
+    ```
 
-Bash example:
-
-```bash
-function YANAtest:my_command@returns_expected_value {
-    result=$(my_command hello)
-    if [[ "$result" == "expected" ]]; then
-        pass 'Returns expected value'
-    else
-        fail "Got unexpected value: $result"
-    fi
-}
-```
+=== "Bash (Linux/macOS)"
+    ```bash
+    function YANAtest:my_command@returns_expected_value {
+        result=$(my_command hello)
+        if [[ "$result" == "expected" ]]; then
+            pass 'Returns expected value'
+        else
+            fail "Got unexpected value: $result"
+        fi
+    }
+    ```
 
 ### `pass`
 
-```powershell
+```text
 pass [<message>]
 ```
 
@@ -87,7 +83,7 @@ Each call to `pass` increments the sub-test passed count.
 
 ### `fail`
 
-```powershell
+```text
 fail [<message>]
 ```
 
@@ -100,96 +96,130 @@ A test function is considered failed overall if it has at least one `fail` call.
 
 ## Exceptions in Tests
 
-If a test function throws an unhandled exception, it is caught by the runner and recorded as a failure. You can also test that exceptions are thrown by wrapping code in `try/catch`.
+If a test function throws an unhandled exception, it is caught by the runner and recorded as a failure.
 
-PowerShell example:
-
-```powershell
-function YANAtest:MyCommand@throws_on_bad_input {
-    try {
-        MyCommand -Arg $null
-        fail 'Expected exception but none was thrown'
+=== "PowerShell (Windows)"
+    You can test that an exception is thrown by wrapping code in `try/catch`.
+    ```powershell
+    function YANAtest:MyCommand@throws_on_bad_input {
+        try {
+            MyCommand -Arg $null
+            fail 'Expected exception but none was thrown'
+        }
+        catch {
+            pass "Caught expected exception: $($_.Exception.Message)"
+        }
     }
-    catch {
-        pass "Caught expected exception: $($_.Exception.Message)"
+    ```
+=== "Bash (Linux/macOS)"
+    You can test that an exception is thrown by checking the command's exit status.
+    ```bash
+    function YANAtest:my_command@throws_on_bad_input {
+        if my_command "" 2>/dev/null; then
+            fail 'Expected exception but none was thrown'
+        else
+            pass 'Caught expected exception'
+        fi
     }
-}
-```
-
-Bash example:
-
-```bash
-function YANAtest:my_command@throws_on_bad_input {
-    if my_command "" 2>/dev/null; then
-        fail 'Expected exception but none was thrown'
-    else
-        pass 'Caught expected exception'
-    fi
-}
-```
+    ```
 
 ## Running Tests
 
-Execute the `yana-test.ps1` or `yana-test.sh` script (referenced below as `yana-test`).
+Execute the `yana-test.ps1` or `yana-test.sh` script.
 
-PowerShell and Bash versions support the same command-line arguments.
-
-Every command-line argument has a corresponding environment variable. If both are specified, the command-line argument takes precedence.
+Every command-line argument uses a corresponding environment variable. If both are specified, the command-line argument takes precedence.
 
 The process exits with code `1` if any tests fail, or `0` if all tests pass.
 
 ### Run all tests in the current directory tree
 
-```bash
-yana-test
-```
+=== "PowerShell (Windows)"
+    ```powershell
+    ./yana-test.ps1
+    ```
+=== "Bash (Linux/macOS)"
+    ```bash
+    ./yana-test.sh
+    ```
 
-### Run all tests in a specific directory
+### Run all tests in a specified directory
 
-Use `-testdir` or `YANA_TESTDIR`:
+Use `-testdir` or `YANA_TESTDIR` to specify the directory to search for test files. Wildcards are supported.
 
-```bash
-yana-test -testdir './tests'
-```
+=== "PowerShell (Windows)"
+    ```powershell
+    ./yana-test.ps1 -testdir './tests'
+    ```
+=== "Bash (Linux/macOS)"
+    ```bash
+    ./yana-test.sh -testdir './tests'
+    ```
 
 ### Run a specific test file
 
-Use `-testfile` or `YANA_TESTFILE`. Wildcards are supported.
+Use `-testfile` or `YANA_TESTFILE` to specify the test file to run. Wildcards are supported.
 
-```bash
-yana-test -testfile './mymodule.yanatests.ps1'
-yana-test -testfile './mymodule*'
-```
+=== "PowerShell (Windows)"
+    ```powershell
+    ./yana-test.ps1 -testfile './mymodule.yanatests.ps1'
+    ./yana-test.ps1 -testfile './mymodule*'
+    ```
+=== "Bash (Linux/macOS)"
+    ```bash
+    ./yana-test.sh -testfile './mymodule.yanatests.ps1'
+    ./yana-test.sh -testfile './mymodule*'
+    ```
 
 ### Run a specific test by name
 
-Use `-testname` or `YANA_TESTNAME`. Wildcards are supported.
+Use `-testname` or `YANA_TESTNAME` to specify the test name to execute. Wildcards are supported.
 
-```bash
-yana-test -testname 'MyCommand'
-yana-test -testname 'MyCommand@*'
-```
+=== "PowerShell (Windows)"
+    ```powershell
+    ./yana-test.ps1 -testname 'MyCommand'
+    ./yana-test.ps1 -testname 'MyCommand@*'
+    ```
+=== "Bash (Linux/macOS)"
+    ```bash
+    ./yana-test.sh -testname 'MyCommand'
+    ./yana-test.sh -testname 'MyCommand@*'
+    ```
 
 ### Output test results to a log file
 
-Use `-logfile` or `YANA_LOGFILE`. If the file already exists, output is appended.
+Use `-logfile` or `YANA_LOGFILE` to specify the log file for test results. If the file already exists, output is appended.
 
-```bash
-yana-test -logfile './test_results.log'
-```
+=== "PowerShell (Windows)"
+    ```powershell
+    ./yana-test.ps1 -logfile './test_results.log'
+    ```
+=== "Bash (Linux/macOS)"
+    ```bash
+    ./yana-test.sh -logfile './test_results.log'
+    ```
 
 ### Suppress console output
 
-Use `-quiet` or `YANA_QUIET`. Only the final summary is printed. If `-logfile` is also specified, full output is written to the log file.
+Use `-quiet` or set `YANA_QUIET` environment variable to `true`. Only the final summary is printed. If `-logfile` is also specified, full output is written to the log file.
 
-```bash
-yana-test -quiet
-```
+=== "PowerShell (Windows)"
+    ```powershell
+    ./yana-test.ps1 -quiet
+    ```
+=== "Bash (Linux/macOS)"
+    ```bash
+    ./yana-test.sh -quiet
+    ```
 
 ### Suppress ANSI color codes
 
-Use `-nocolor` or `YANA_NOCOLOR`:
+Use `-nocolor` or set `YANA_NOCOLOR` environment variable to `true`. This is useful when redirecting output to a log file or when running in environments that do not support ANSI color codes.
 
-```bash
-yana-test -nocolor
-```
+=== "PowerShell (Windows)"
+    ```powershell
+    ./yana-test.ps1 -nocolor
+    ```
+=== "Bash (Linux/macOS)"
+    ```bash
+    ./yana-test.sh -nocolor
+    ```

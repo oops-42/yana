@@ -1,60 +1,54 @@
----
-title: Concepts
-nav_order: 3
----
-
-# Concepts
+# YANA Concepts
 
 This page explains the core components of YANA and how they fit together.
-
-## Overview
-
-```mermaid
-flowchart TB
-    bp([Blueprint]) --> tool[YANA Toolkit];
-    tool -->| fetch | modules([Fetches Modules]);
-    tool -->| test | tests([Runs Tests]);
-    tool -->| compile | yanaspec([Creates yanaspec]);
-    tool -->| package | yanapack([Creates yanapack]);
-    tool -->| publish | repo([Publishes yanapack to Repository]);
-    repo --> | fetch | engine([YANA Engine]);
-    engine --> | apply | node_a([Applies to Node]);
-    engine --> | verify | node_v([Verifies Node]);
-
-```
 
 ## YANA Engine
 
 **YANA Engine** is an extremely lean and simple PowerShell/Bash script that runs directly on the target node.
-It fetches and applies a `yanapack` (bundled configuration and automation package) to the node.
-Less than 500 lines of code with minimal dependencies.
+Less than 500 lines of commented and unit-tested code with minimal dependencies.
 
-- PowerShell version requires no additional tools beyond PowerShell itself.
-- Bash version requires only `curl`, `tar`, `gunzip`, `base64` and `jq`.
+It applies a `yanapack` (bundled configuration and automation package) to the managed node.
 
-The Engine does not need the Toolkit to be present on the target node. It only needs the `yanapack` file.
+> It is the operator's responsibility to ensure that all requirements are met on the target node before applying a `yanapack`.
 
-## YANA Toolkit
+> **YANA Modules** may have additional requirements. Review the specification of each module for details. Particularly, `requires:` section.
+
+## YANA Toolkit (In Future)
 
 **YANA Toolkit** is an all-in-one tool for authoring blueprints. It runs on the developer's machine, not on the target node.
 
 The Toolkit allows you to:
 
-- Create and validate blueprints
+- Create and validate blueprints in YAML format
 - Fetch all dependencies declared in a blueprint
-- Unit-test actions and helpers using the [Testing Framework](testing.md)
+- Run unit-tests for implemented functions using the [Testing Framework](testing.md)
 - Compile the blueprint into a `yanaspec`
 - Package everything into a `yanapack` for deployment
 
-Dependencies:
-- PowerShell version requires `git` and `YamlDotNet`.
-- Bash version requires `git`, `curl`, `tar`, `gzip`, `base64`, `jq` and `yq`.
+The Engine does not need the Toolkit to be present on the target node. It only needs the `yanapack` file.
 
-## yanapacks
+### YANA Engine Requirements
 
-A **yanapack** is a compressed, self-contained package produced by the YANA Toolkit.
+=== "PowerShell (Windows)"
+    - `YamlDotNet`
+    - `git`
+=== "Bash (Linux/macOS)"
+    - `curl`
+    - `tar`
+    - `gzip`
+    - `gunzip`
+    - `base64`
+    - `openssl`
+    - `jq`
+    - `yq`
+    - `git`
+
+## yanapack (In Future)
+
+A **yanapack** is a compressed, self-contained package created by the YANA Toolkit.
 
 It contains:
+
 - A `yanaspec` file (final JSON document derived from the blueprint, understood by YANA Engine)
 - All required modules, scripts, templates, binaries and other assets
 
@@ -62,4 +56,4 @@ The target node only needs YANA Engine and the `yanapack`. No internet access or
 
 ## yanaspec
 
-**yanaspec** is the compiled, resolved JSON document that YANA Engine reads. It is produced from your blueprint by the Toolkit. You do not write yanaspec directly.
+**yanaspec** is the compiled, resolved JSON document that YANA Engine reads and executes. It is produced from your blueprint by the Toolkit.

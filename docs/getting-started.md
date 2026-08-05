@@ -1,6 +1,5 @@
 ---
 title: Getting Started
-nav_order: 2
 ---
 
 # Getting Started
@@ -11,65 +10,171 @@ nav_order: 2
 
 YANA has minimal dependencies by design.
 
-### PowerShell (Windows)
-
-- PowerShell 5.1 or later (built into Windows)
-- `git` (required by YANA Toolkit only)
-- `YamlDotNet` (required by YANA Toolkit only)
-
-### Bash (Linux/macOS)
-
-- Bash 4.0 or later
-- `curl`, `tar`, `gunzip`, `base64`, `jq` (required by YANA Engine)
-- `git`, `gzip`, `yq` (required by YANA Toolkit only)
+=== "PowerShell (Windows)"
+    - Windows PowerShell 5.1
+    - Windows 10 or later / Windows Server 2016 or later
+=== "Bash (Linux/macOS)"
+    - `bash` version 4.0 or later
+    - `curl`
+    - `tar`
+    - `gunzip`
+    - `base64`
+    - `openssl`
+    - `jq`
 
 ## Installation
 
-YANA consists of standalone scripts. There is no installer.
+YANA does not include installer. There are just two scripts for YANA Engine and YANA Toolkit*, which you can download and run directly.
 
-1. Download `yana.sh` (Bash) or `yana.ps1` (PowerShell) from the [releases page](https://github.com/oops-42/yana/releases) or clone the repository.
-2. Place the script in a directory on your `PATH`, or reference it directly.
+> * YANA Toolkit is intended for future use and may not be available in the current release.
 
-```bash
-# Clone the repository
-git clone https://github.com/oops-42/yana.git
-cd yana
-```
+=== "PowerShell (Windows)"
+
+    YANA Engine:
+    ```powershell
+    Invoke-WebRequest -Uri 'https://github.com/oops-42/yana/releases/latest/download/yana.ps1' -OutFile yana.ps1
+    ```
+    YANA Testing Framework:
+    ```powershell
+    Invoke-WebRequest -Uri 'https://github.com/oops-42/yana/releases/latest/download/yana-test.ps1' -OutFile yana-test.ps1
+    ```
+    YANA Toolkit:
+    ```powershell
+    Invoke-WebRequest -Uri 'https://github.com/oops-42/yana/releases/latest/download/yana-tool.ps1' -OutFile yana-tool.ps1
+    ```
+
+=== "Bash (Linux/macOS)"
+
+    YANA Engine:
+    ```bash
+    curl -L -o yana.sh 'https://github.com/oops-42/yana/releases/latest/download/yana.sh'
+    chmod +x yana.sh
+    ```
+    YANA Testing Framework:
+    ```bash
+    curl -L -o yana-test.sh 'https://github.com/oops-42/yana/releases/latest/download/yana-test.sh'
+    chmod +x yana-test.sh
+    ```
+    YANA Toolkit:
+    ```bash
+    curl -L -o yana-tool.sh 'https://github.com/oops-42/yana/releases/latest/download/yana-tool.sh'
+    chmod +x yana-tool.sh
+    ```
 
 ## Running YANA
 
-Apply a blueprint to the current node:
+### Usage instructions for YANA Engine
 
-```bash
-# Bash
-yana apply -source
+=== "PowerShell (Windows)"
 
-# PowerShell
-./yana.ps1
-```
+    ```powershell
+    ./yana.ps1 -help
+    ```
 
-Specify a blueprint file:
+=== "Bash (Linux/macOS)"
 
-```bash
-./yana.sh -blueprint ./my-blueprint.yana.yaml
-```
+    ```bash
+    ./yana.sh -help
+    ```
 
-Run a specific routine:
+### Check the version of YANA Engine
 
-```bash
-./yana.sh -routine setup
-```
+=== "PowerShell (Windows)"
+
+    ```powershell
+    ./yana.ps1 version
+    ```
+=== "Bash (Linux/macOS)"
+
+    ```bash
+    ./yana.sh version
+    ```
+
+### Apply a blueprint to the node
+
+=== "PowerShell (Windows)"
+
+    ```powershell
+    ./yana.ps1 apply -source <path/to/.yana.json>
+    ```
+
+=== "Bash (Linux/macOS)"
+
+    ```bash
+    ./yana.sh apply -source <path/to/.yana.json>
+    ```
+
+### Verify the node against a blueprint
+
+=== "PowerShell (Windows)"
+
+    ```powershell
+    ./yana.ps1 verify -source <path/to/.yana.json>
+    ```
+=== "Bash (Linux/macOS)"
+
+    ```bash
+    ./yana.sh verify -source <path/to/.yana.json>
+    ```
 
 ## Running the Testing Framework
 
-To run tests for your actions and helpers:
+YANA includes a testing framework for unit-testing your actions, verifiers, helpers and other functions. It is part of the YANA Toolkit.
 
-```bash
-# Bash - run all tests in current directory
-./yana-test.sh
+### Run all tests in current directory
 
-# PowerShell - run all tests in current directory
-./yana-test.ps1
-```
+=== "PowerShell (Windows)"
 
-See the [Testing Framework](testing.md) documentation for full usage.
+    ```powershell
+    ./yana-test.ps1
+    ```
+
+=== "Bash (Linux/macOS)"
+
+    ```bash
+    ./yana-test.sh
+    ```
+
+### Run all tests in specified directory
+
+=== "PowerShell (Windows)"
+
+    ```powershell
+    ./yana-test.ps1 -testdir <path/to/test/directory> # supports wildcards
+    ```
+
+=== "Bash (Linux/macOS)"
+
+    ```bash
+    ./yana-test.sh -testdir <path/to/test/directory> # supports wildcards
+    ```
+
+### Run specified test file
+
+=== "PowerShell (Windows)"
+
+    ```powershell
+    ./yana-test.ps1 -testfile <path/to/test/file.yanatests.ps1> # supports wildcards
+    ```
+
+=== "Bash (Linux/macOS)"
+
+    ```bash
+    ./yana-test.sh -testfile <path/to/test/file.yanatests.sh> # supports wildcards
+    ```
+
+### Run specified tests
+
+=== "PowerShell (Windows)"
+
+    ```powershell
+    ./yana-test.ps1 -testname <test_name> # supports wildcards
+    ```
+
+=== "Bash (Linux/macOS)"
+
+    ```bash
+    ./yana-test.sh -testname <test_name> # supports wildcards
+    ```
+
+Read the [Testing Framework](testing.md) documentation for full usage.
