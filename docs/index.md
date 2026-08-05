@@ -1,7 +1,3 @@
----
-title: About YANA
----
-
 # YANA - Yet Another Node Automator
 
 **YANA** is an extremely small and simple, yet powerful and extensible Configuration Management and Automation tool written in pure PowerShell (for Windows systems) and Bash (for Unix-like systems). Both versions provide full feature parity and are fully compatible with each other.
