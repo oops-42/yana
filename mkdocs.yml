@@ -1,0 +1,109 @@
+site_name: YANA - Yet Another Node Automator
+site_description: A lightweight Configuration Management and Automation Tool for PowerShell and Bash
+site_url: https://oops-42.github.io/yana/
+site_author: Pavel Lechenko (oops-42)
+
+copyright: "Copyright &copy; 2026 Pavel Lechenko (oops-42)"
+
+repo_url: "https://github.com/oops-42/yana"
+# repo_name: "user/repo"
+# edit_uri: "edit/main/docs/"
+
+nav:
+  - About YANA: index.md
+  - getting-started.md
+  - concepts.md
+  - yanaspec.md
+  - testing.md
+  - contributing.md
+
+
+theme:
+  name: material
+  # variant: classic
+  language: "en"
+  features:
+    - announce.dismiss
+    - content.action.edit
+    # - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    # - content.code.select
+    - content.footnote.tooltips
+    - content.tabs.link
+    - content.tooltips
+    # - header.autohide
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    # - navigation.instant.prefetch
+    # - navigation.instant.progress
+    - navigation.path
+    # - navigation.prune
+    - navigation.sections
+    # - navigation.tabs
+    # - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - toc.follow
+    - toc.integrate
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: "lucide/sun-moon"
+        name: "Switch to light mode"
+    - media: "(prefers-color-scheme: light)"
+      scheme: "default"
+      toggle:
+        icon: "lucide/sun"
+        name: "Switch to dark mode"
+    - media: "(prefers-color-scheme: dark)"
+      scheme: "slate"
+      toggle:
+        icon: "lucide/moon"
+        name: "Switch to system preference"
+
+markdown_extensions:
+  abbr: {}
+  admonition: {}
+  attr_list: {}
+  codehilite:
+    guess_lang: false
+  def_list: {}
+  footnotes: {}
+  md_in_html: {}
+  toc:
+    permalink: true
+  pymdownx.arithmatex:
+    generic: true
+  pymdownx:
+    betterem: {}
+    caret: {}
+    details: {}
+    emoji:
+      emoji_index: zensical.extensions.emoji.twemoji
+      emoji_generator: zensical.extensions.emoji.to_svg
+    highlight:
+      anchor_linenums: true
+      line_spans: "__span"
+      pygments_lang_class: true
+    inlinehilite: {}
+    keys: {}
+    magiclink: {}
+    mark: {}
+    smartsymbols: {}
+    # snippets:
+    #   base_path: "includes"
+    superfences:
+      custom_fences:
+        - name: "mermaid"
+          class: "mermaid"
+          format: "pymdownx.superfences.fence_code_format"
+    tabbed:
+      alternate_style: true
+      combine_header_slug: true
+    tasklist:
+      custom_checkbox: true
+    tilde: {}
