@@ -7,7 +7,7 @@ copyright: "Copyright &copy; 2026 Pavel Lechenko (oops-42)"
 
 repo_url: "https://github.com/oops-42/yana"
 # repo_name: "user/repo"
-# edit_uri: "edit/main/docs/"
+edit_uri: "edit/main/docs/"
 
 nav:
   - About YANA: index.md

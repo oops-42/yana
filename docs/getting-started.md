@@ -1,7 +1,3 @@
----
-title: Getting Started
----
-
 # Getting Started
 
 > Note: YANA is under active development. This document reflects the current state of the project.
