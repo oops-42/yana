@@ -9,9 +9,9 @@ if [ -z "${BASH_VERSION:-}" ] || [ "${BASH_VERSINFO[0]:-1}" -lt 4 ]; then
 	exit 1
 fi
 
-YANA_SOURCE='examples/linux'
-YANA_MODE='apply'
-YANA_TRACE=true
+# YANA_SOURCE='examples/linux'
+# YANA_MODE='apply'
+# YANA_TRACE=true
 
 set -eEuo pipefail
 
@@ -487,9 +487,9 @@ _yana_() {
 	[[ -z $YANA_MODE ]] && throw 'No mode specified. Use -help to see available modes.'
 	_yana_mode_"$YANA_MODE"
 }
-if [[ -z ${BASH_SOURCE[1]:-} ]] || [[ ${BASH_SOURCE[1]:-bashdb} == *bashdb ]]; then
+if [[ -z ${BASH_SOURCE[1]:-} ]] || [[ ${BASH_SOURCE[1]:-} == *bashdb ]]; then
 	# Proceed with the script execution only if it is executed directly or under bashdb.
-	if [[ ${BASH_SOURCE[1]:-bashdb} != *bashdb ]]; then
+	if [[ ${BASH_SOURCE[1]:-} != *bashdb ]]; then
 		trap 'log fatal "An unexpected error occurred at line $LINENO in function ${FUNCNAME[0]}."' ERR
 	fi
 	(_yana_ "$@") || builtin exit $?

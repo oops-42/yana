@@ -230,6 +230,7 @@ function _yana_resolve_args([hashtable]$SpecArgs) {
 function _yana_eval_conditions([hashtable]$Step) {
   $stepName = $Step['name']
   $stepConditions = $Step['if']
+  if ([string]::IsNullOrEmpty($stepConditions)) { $stepConditions = @() }
   if ($stepConditions -isnot [array]) { $stepConditions = @($stepConditions) }
   foreach ($cond in $stepConditions) {
     $condValue = _yana_expand_string -InputString $cond -Params $Script:YANA_PARAMS -Vars $Script:YANA_VARS
@@ -240,6 +241,7 @@ function _yana_eval_conditions([hashtable]$Step) {
     log debug "Step '$stepName' passed 'if' condition: '$cond'"
   }
   $stepConditions = $Step['if_not']
+  if ([string]::IsNullOrEmpty($stepConditions)) { $stepConditions = @() }
   if ($stepConditions -isnot [array]) { $stepConditions = @($stepConditions) }
   foreach ($cond in $stepConditions) {
     $condValue = _yana_expand_string -InputString $cond -Params $Script:YANA_PARAMS -Vars $Script:YANA_VARS
