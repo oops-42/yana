@@ -9,9 +9,9 @@ if [ -z "${BASH_VERSION:-}" ] || [ "${BASH_VERSINFO[0]:-1}" -lt 4 ]; then
 	exit 1
 fi
 
-# YANA_SOURCE='examples/linux'
-# YANA_MODE='apply'
-# YANA_TRACE=true
+YANA_SOURCE='examples/linux'
+YANA_MODE='apply'
+YANA_TRACE=true
 
 set -eEuo pipefail
 
@@ -85,7 +85,7 @@ log() {
 	fi
 	_logMessage="${_color_code}$(date -u +'%Y-%m-%dT%H:%M:%SZ')\t${_level}\t${_message}${_reset_code}"
 	builtin echo -e "$_logMessage" >&2
-	if [[ -n $YANA_LOGFILE ]]; then
+	if [[ -n ${YANA_LOGFILE:-} ]]; then
 		# shellcheck disable=SC2097,SC2098
 		builtin echo -e "${_logMessage}" >>"$YANA_LOGFILE" || YANA_LOGFILE='' log error "Failed to write to log file '$YANA_LOGFILE'. Check permissions and available disk space."
 	fi
@@ -248,7 +248,40 @@ _yana_load_step() {
 	[[ ${_yana_step_ref['apply']} == "-" ]] && _yana_step_ref['apply']=""
 	[[ ${_yana_step_ref['verify']} == "-" && -n ${_yana_step_ref['apply']} ]] && _yana_step_ref['verify']="${_yana_step_ref['apply']}"
 	[[ ${_yana_step_ref['verify']} == "-" ]] && _yana_step_ref['verify']=""
+	_yana_step_ref['if']=$(jq -r '.if // empty | @json' 2>/dev/null <<<"$_yana_step_json")
+	_yana_step_ref['if_not']=$(jq -r '.if_not // empty | @json' 2>/dev/null <<<"$_yana_step_json")
 
+}
+# Evaluates the conditions for a step and returns 0 if the step should be executed, or 1 if it should be skipped.
+_yana_eval_conditions() {
+	builtin local -n _yana_step_ref="$1"
+	builtin local _rc=0 _yana_step_condition _yana_cond _yana_cond_value
+	builtin local -a _yana_if_conditions
+	_yana_step_name="${_yana_step_ref['name']}"
+
+	_yana_step_condition=${_yana_step_ref['if']:-}
+	if [[ -n $_yana_step_condition ]]; then
+		_yana_step_condition=$(jq -r 'if type=="array" then .[] else . end' <<<"$_yana_step_condition") || throw "Failed to parse 'if' conditions for step '${_yana_step_name}'." $ERR_DATA_FORMAT
+		builtin readarray -t _yana_if_conditions <<<"$_yana_step_condition"
+		for _yana_cond in "${_yana_if_conditions[@]}"; do
+			_yana_expand_string "$_yana_cond" _yana_cond_value
+			_rc=$?
+			[[ ${_yana_cond_value,,} == true ]] && continue
+			[[ -z $_yana_cond_value || $_rc -ne 0 ]] && return 1
+		done
+	fi
+
+	_yana_step_condition=${_yana_step_ref['if_not']:-}
+	if [[ -n $_yana_step_condition ]]; then
+		_yana_step_condition=$(jq -r 'if type=="array" then .[] else . end' <<<"$_yana_step_condition") || throw "Failed to parse 'if_not' conditions for step '${_yana_step_name}'." $ERR_DATA_FORMAT
+		builtin readarray -t _yana_if_conditions <<<"$_yana_step_condition"
+		for _yana_cond in "${_yana_if_conditions[@]}"; do
+			_yana_expand_string "$_yana_cond" _yana_cond_value
+			_rc=$?
+			[[ -z $_yana_cond_value || ${_yana_cond_value,,} == false ]] && continue
+			[[ $_rc -eq 0 ]] && return 1
+		done
+	fi
 }
 _yana_verify_step() {
 	# shellcheck disable=SC2034
@@ -256,6 +289,10 @@ _yana_verify_step() {
 	_yana_load_step "$@"
 	if [[ -z ${YANA_STEP['verify']} ]]; then
 		log skip "  - [SKIPPED] ${YANA_STEP[name]} (no verify function defined)"
+		return 0
+	fi
+	if ! _yana_eval_conditions YANA_STEP; then
+		log skip "  - [SKIPPED] ${YANA_STEP[name]} (conditions not met)"
 		return 0
 	fi
 	_yana_resolve_args "${YANA_STEP['args']}" _yana_step_args || throw "Failed to resolve arguments for step '${YANA_STEP[name]}'." $ERR_DATA_FORMAT
@@ -281,6 +318,10 @@ _yana_apply_step() {
 	builtin local _rc=0 _yana_step_output
 	if [[ -z ${YANA_STEP['apply']} ]]; then
 		log skip "  - [SKIPPED] ${YANA_STEP[name]} (no apply function defined)"
+		return 0
+	fi
+	if ! _yana_eval_conditions YANA_STEP; then
+		log skip "  - [SKIPPED] ${YANA_STEP[name]} (conditions not met)"
 		return 0
 	fi
 	builtin local -A _yana_step_args
@@ -448,6 +489,8 @@ _yana_() {
 }
 if [[ -z ${BASH_SOURCE[1]:-} ]] || [[ ${BASH_SOURCE[1]:-bashdb} == *bashdb ]]; then
 	# Proceed with the script execution only if it is executed directly or under bashdb.
-	trap 'log fatal "An unexpected error occurred at line $LINENO in function ${FUNCNAME[0]}."' ERR
+	if [[ ${BASH_SOURCE[1]:-bashdb} != *bashdb ]]; then
+		trap 'log fatal "An unexpected error occurred at line $LINENO in function ${FUNCNAME[0]}."' ERR
+	fi
 	(_yana_ "$@") || builtin exit $?
 fi
