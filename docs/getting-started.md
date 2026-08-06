@@ -7,9 +7,12 @@
 YANA has minimal dependencies by design.
 
 === "PowerShell (Windows)"
+
     - Windows PowerShell 5.1
     - Windows 10 or later / Windows Server 2016 or later
+
 === "Bash (Linux/macOS)"
+
     - `bash` version 4.0 or later
     - `curl`
     - `tar`
