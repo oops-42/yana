@@ -20,7 +20,8 @@ Metadata section contains information about the spec itself, such as name, versi
 
 ### Requires
 
-Requires section lists the requirements that must be satisfied on the target node before applying the spec. It includes a list of required tools.
+Requires section lists the requirements that must be satisfied on the target node before applying the spec.
+It includes a list of required tools.
 
 ```json title="Example"
 "requires": [
@@ -50,7 +51,10 @@ Params can be referenced using `${param:<param_name>}` syntax.
 
 ### Vars
 
-Vars section defines variables that are used in the spec. Each variable has a name and value. Variables, in contrast to params, are not overridden at apply time. They are used to store intermediate values or computed results.
+Vars section defines variables that are used in the spec.
+Each variable has a name (alphanumeric with underscores) and value.
+Variables, in contrast to params, are not overridden at apply time.
+They are used to store intermediate values or computed results.
 
 Variable values can be static or dynamic.
 
@@ -93,8 +97,8 @@ Each step has:
 | Field | Description |
 | --- | --- |
 | `name` | (Optional) Step name |
-| `apply` | Reference to the `yanaapply`-function in format: `[module/]script:function`. If omitted, the step will not perform `apply` action |
-| `verify` | Reference to the `yanaverify`-function in format: `[module/]script:function`. If omitted, the step will use the `apply` function. If empty or "-", the step will not perform `verify` action |
+| `apply` | Reference to the `yanaapply`-function in format: `[module/]script:function`.<br>If omitted, the step will not perform `apply` action. |
+| `verify` | Reference to the `yanaverify`-function in format: `[module/]script:function`.<br>If omitted, the step will use the `apply` function. If empty or "-", the step will not perform `verify` action |
 | `args` | (Optional) Arguments for the action |
 
 > Step shall include at least one of `apply` or `verify` fields. If both are omitted, the step will be skipped.

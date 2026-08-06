@@ -16,11 +16,11 @@ You fully control what and how to test - no magic, no complex testing frameworks
 - If you prefer or need to separate tests from code, put them into files named as `<script>.yanatests.ps1` or `<script>.yanatests.sh`.
 - Dot-source the script under test at the top of your `yanatests` file:
 === "PowerShell (Windows)"
-    ```powershell
+    ``` powershell
     . "$PSScriptRoot/myscript.ps1"
     ```
 === "Bash (Linux/macOS)"
-    ```bash
+    ``` bash
     . "${BASH_SOURCE[0]%/*}/myscript.sh"
     ```
 
@@ -32,12 +32,15 @@ Test functions follow a strict naming convention `YANAtest:<function>[@<scenario
 - `@<scenario>` - (optional) a short description of the specific case being tested.
 
 === "PowerShell (Windows)"
-    ```powershell
+
+    ``` powershell
     function YANAtest:MyCommand { ... }
     function YANAtest:MyCommand@handles_empty_input { ... }
     ```
+
 === "Bash (Linux/macOS)"
-    ```bash
+
+    ``` bash
     function YANAtest:my_command { ... }
     function YANAtest:my_command@handles_empty_input { ... }
     ```
@@ -47,7 +50,8 @@ Test functions follow a strict naming convention `YANAtest:<function>[@<scenario
 Inside a test function, use `pass` and `fail` to record assertions.
 
 === "PowerShell (Windows)"
-    ```powershell
+
+    ``` powershell
     function YANAtest:MyCommand@returns_expected_value {
         $result = MyCommand -Arg 'hello'
         if ($result -eq 'expected') {
@@ -59,7 +63,8 @@ Inside a test function, use `pass` and `fail` to record assertions.
     ```
 
 === "Bash (Linux/macOS)"
-    ```bash
+
+    ``` bash
     function YANAtest:my_command@returns_expected_value {
         result=$(my_command hello)
         if [[ "$result" == "expected" ]]; then
@@ -72,7 +77,7 @@ Inside a test function, use `pass` and `fail` to record assertions.
 
 ### `pass`
 
-```text
+``` text
 pass [<message>]
 ```
 
@@ -83,7 +88,7 @@ Each call to `pass` increments the sub-test passed count.
 
 ### `fail`
 
-```text
+``` text
 fail [<message>]
 ```
 
@@ -99,8 +104,10 @@ A test function is considered failed overall if it has at least one `fail` call.
 If a test function throws an unhandled exception, it is caught by the runner and recorded as a failure.
 
 === "PowerShell (Windows)"
+
     You can test that an exception is thrown by wrapping code in `try/catch`.
-    ```powershell
+
+    ``` powershell
     function YANAtest:MyCommand@throws_on_bad_input {
         try {
             MyCommand -Arg $null
@@ -111,9 +118,12 @@ If a test function throws an unhandled exception, it is caught by the runner and
         }
     }
     ```
+
 === "Bash (Linux/macOS)"
+
     You can test that an exception is thrown by checking the command's exit status.
-    ```bash
+
+    ``` bash
     function YANAtest:my_command@throws_on_bad_input {
         if my_command "" 2>/dev/null; then
             fail 'Expected exception but none was thrown'
@@ -134,11 +144,14 @@ The process exits with code `1` if any tests fail, or `0` if all tests pass.
 ### Run all tests in the current directory tree
 
 === "PowerShell (Windows)"
-    ```powershell
+
+    ``` powershell
     ./yana-test.ps1
     ```
+
 === "Bash (Linux/macOS)"
-    ```bash
+
+    ``` bash
     ./yana-test.sh
     ```
 
@@ -147,11 +160,14 @@ The process exits with code `1` if any tests fail, or `0` if all tests pass.
 Use `-testdir` or `YANA_TESTDIR` to specify the directory to search for test files. Wildcards are supported.
 
 === "PowerShell (Windows)"
-    ```powershell
+
+    ``` powershell
     ./yana-test.ps1 -testdir './tests'
     ```
+
 === "Bash (Linux/macOS)"
-    ```bash
+
+    ``` bash
     ./yana-test.sh -testdir './tests'
     ```
 
@@ -160,12 +176,15 @@ Use `-testdir` or `YANA_TESTDIR` to specify the directory to search for test fil
 Use `-testfile` or `YANA_TESTFILE` to specify the test file to run. Wildcards are supported.
 
 === "PowerShell (Windows)"
-    ```powershell
+
+    ``` powershell
     ./yana-test.ps1 -testfile './mymodule.yanatests.ps1'
     ./yana-test.ps1 -testfile './mymodule*'
     ```
+
 === "Bash (Linux/macOS)"
-    ```bash
+
+    ``` bash
     ./yana-test.sh -testfile './mymodule.yanatests.ps1'
     ./yana-test.sh -testfile './mymodule*'
     ```
@@ -175,12 +194,15 @@ Use `-testfile` or `YANA_TESTFILE` to specify the test file to run. Wildcards ar
 Use `-testname` or `YANA_TESTNAME` to specify the test name to execute. Wildcards are supported.
 
 === "PowerShell (Windows)"
-    ```powershell
+
+    ``` powershell
     ./yana-test.ps1 -testname 'MyCommand'
     ./yana-test.ps1 -testname 'MyCommand@*'
     ```
+
 === "Bash (Linux/macOS)"
-    ```bash
+
+    ``` bash
     ./yana-test.sh -testname 'MyCommand'
     ./yana-test.sh -testname 'MyCommand@*'
     ```
@@ -190,11 +212,14 @@ Use `-testname` or `YANA_TESTNAME` to specify the test name to execute. Wildcard
 Use `-logfile` or `YANA_LOGFILE` to specify the log file for test results. If the file already exists, output is appended.
 
 === "PowerShell (Windows)"
-    ```powershell
+
+    ``` powershell
     ./yana-test.ps1 -logfile './test_results.log'
     ```
+
 === "Bash (Linux/macOS)"
-    ```bash
+
+    ``` bash
     ./yana-test.sh -logfile './test_results.log'
     ```
 
@@ -203,11 +228,14 @@ Use `-logfile` or `YANA_LOGFILE` to specify the log file for test results. If th
 Use `-quiet` or set `YANA_QUIET` environment variable to `true`. Only the final summary is printed. If `-logfile` is also specified, full output is written to the log file.
 
 === "PowerShell (Windows)"
-    ```powershell
+
+    ``` powershell
     ./yana-test.ps1 -quiet
     ```
+
 === "Bash (Linux/macOS)"
-    ```bash
+
+    ``` bash
     ./yana-test.sh -quiet
     ```
 
@@ -216,10 +244,13 @@ Use `-quiet` or set `YANA_QUIET` environment variable to `true`. Only the final 
 Use `-nocolor` or set `YANA_NOCOLOR` environment variable to `true`. This is useful when redirecting output to a log file or when running in environments that do not support ANSI color codes.
 
 === "PowerShell (Windows)"
-    ```powershell
+
+    ``` powershell
     ./yana-test.ps1 -nocolor
     ```
+
 === "Bash (Linux/macOS)"
-    ```bash
+
+    ``` bash
     ./yana-test.sh -nocolor
     ```

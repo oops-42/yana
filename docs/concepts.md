@@ -7,7 +7,7 @@ This page explains the core components of YANA and how they fit together.
 **YANA Engine** is an extremely lean and simple PowerShell/Bash script that runs directly on the target node.
 Less than 500 lines of commented and unit-tested code with minimal dependencies.
 
-It applies a `yanapack` (bundled configuration and automation package) to the managed node.
+It applies a [`yanaspec`](#yanaspec) to the managed node.
 
 > It is the operator's responsibility to ensure that all requirements are met on the target node before applying a `yanapack`.
 
@@ -25,14 +25,17 @@ The Toolkit allows you to:
 - Compile the blueprint into a `yanaspec`
 - Package everything into a `yanapack` for deployment
 
-The Engine does not need the Toolkit to be present on the target node. It only needs the `yanapack` file.
+> The Engine does not need the Toolkit to be present on the target node.
 
-### YANA Engine Requirements
+### YANA Toolkit Requirements
 
 === "PowerShell (Windows)"
+
     - `YamlDotNet`
     - `git`
+
 === "Bash (Linux/macOS)"
+
     - `curl`
     - `tar`
     - `gzip`
@@ -42,6 +45,10 @@ The Engine does not need the Toolkit to be present on the target node. It only n
     - `jq`
     - `yq`
     - `git`
+
+## yanaspec
+
+**yanaspec** is the compiled, resolved JSON document that YANA Engine reads and executes. It is produced from your blueprint by the Toolkit.
 
 ## yanapack (In Future)
 
@@ -53,7 +60,3 @@ It contains:
 - All required modules, scripts, templates, binaries and other assets
 
 The target node only needs YANA Engine and the `yanapack`. No internet access or extra dependencies are required at apply time. You can audit the full contents of a yanapack before deploying it.
-
-## yanaspec
-
-**yanaspec** is the compiled, resolved JSON document that YANA Engine reads and executes. It is produced from your blueprint by the Toolkit.
