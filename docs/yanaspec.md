@@ -94,11 +94,13 @@ All steps executed sequentially in the order they are defined.
 
 Each step has:
 
-| Field | Description |
-| --- | --- |
-| `name` | (Optional) Step name |
-| `apply` | Reference to the `yanaapply`-function in format: `[module/]script:function`.<br>If omitted, the step will not perform `apply` action. |
-| `verify` | Reference to the `yanaverify`-function in format: `[module/]script:function`.<br>If omitted, the step will use the `apply` function. If empty or "-", the step will not perform `verify` action |
-| `args` | (Optional) Arguments for the action |
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | string | (Optional) Step name |
+| `apply` | string | Reference to the `yanaapply`-function in format: `[module/]script:function`.<br>If omitted, the step will not perform `apply` action. |
+| `verify` | string | Reference to the `yanaverify`-function in format: `[module/]script:function`.<br>If omitted, the step will use the `apply` function. If empty or "-", the step will not perform `verify` action |
+| `args` | object | (Optional) Arguments for the action |
+| `if` | string/array | (Optional) Condition(s) to execute the step. |
+| `if_not` | string/array | (Optional) Condition(s) to skip the step. |
 
 > Step shall include at least one of `apply` or `verify` fields. If both are omitted, the step will be skipped.

@@ -2,7 +2,7 @@ if ! command -v curl >/dev/null 2>&1; then
 	throw "Error: 'curl' command not found. Please install curl to use the curl.request action." $ERR_GENERAL
 fi
 
-yanaapply_request() {
+yanaverify_request() {
 	local url="${YANA_ARGS[url]:-}"
 	local method="${YANA_ARGS[method]:-GET}"
 	local headers="${YANA_ARGS[headers]:-}"

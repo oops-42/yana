@@ -1,6 +1,8 @@
 {
   "requires": [
-    "bash"
+    "bash",
+    "apk",
+    "curl"
   ],
   "params": {
     "app_dir": "/tmp/yana_demo",
@@ -10,7 +12,7 @@
   "steps": [
     {
       "name": "Ensure application configuration exists",
-      "action": "file:write",
+      "apply": "file:write",
       "args": {
         "path": "${param:config_file}",
         "content": "PORT=${param:service_port}\nDEPLOYED_AT=${var:iso_time}\nUSER=${env:USER}",
@@ -19,7 +21,7 @@
     },
     {
       "name": "Write marker file",
-      "action": "file:write",
+      "apply": "file:write",
       "args": {
         "path": "${param:app_dir}/status.txt",
         "content": "STATUS=ACTIVE",
@@ -28,7 +30,7 @@
     },
     {
       "name": "install nginx",
-      "action": "apk:install",
+      "apply": "apk:install",
       "args": {
         "package": "nginx"
       }

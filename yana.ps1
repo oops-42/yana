@@ -226,6 +226,33 @@ function _yana_resolve_args([hashtable]$SpecArgs) {
   }
   $resolvedArgs
 }
+# Evaluates the conditions for a step and returns $true if the step should be executed, or $false if it should be skipped.
+function _yana_eval_conditions([hashtable]$Step) {
+  $stepName = $Step['name']
+  $stepConditions = $Step['if']
+  if ([string]::IsNullOrEmpty($stepConditions)) { $stepConditions = @() }
+  if ($stepConditions -isnot [array]) { $stepConditions = @($stepConditions) }
+  foreach ($cond in $stepConditions) {
+    $condValue = _yana_expand_string -InputString $cond -Params $Script:YANA_PARAMS -Vars $Script:YANA_VARS
+    if (-not [bool]$condValue) {
+      log debug "Step '$stepName' skipped due to 'if' condition: '$cond'"
+      return $false
+    }
+    log debug "Step '$stepName' passed 'if' condition: '$cond'"
+  }
+  $stepConditions = $Step['if_not']
+  if ([string]::IsNullOrEmpty($stepConditions)) { $stepConditions = @() }
+  if ($stepConditions -isnot [array]) { $stepConditions = @($stepConditions) }
+  foreach ($cond in $stepConditions) {
+    $condValue = _yana_expand_string -InputString $cond -Params $Script:YANA_PARAMS -Vars $Script:YANA_VARS
+    if ([bool]$condValue) {
+      log debug "Step '$stepName' skipped due to 'if_not' condition: '$cond'"
+      return $false
+    }
+    log debug "Step '$stepName' passed 'if_not' condition: '$cond'"
+  }
+  $true
+}
 # Verifies a step from the YANA spec.
 function _yana_verify_step([hashtable]$Step, [string]$RootDir = $Script:YANA_SOURCE) {
   $stepName = $Step['name']
@@ -234,12 +261,13 @@ function _yana_verify_step([hashtable]$Step, [string]$RootDir = $Script:YANA_SOU
   if ($null -eq $stepFunction) { $stepFunction = $Step['apply'] }
   if ($stepFunction -eq '-') { $stepFunction = '' }
 
-  if ([string]::IsNullOrEmpty($stepFunction)) { log skip "Step '$stepName' has no 'verify' function defined. Skipping." ; return }
+  if ([string]::IsNullOrEmpty($stepFunction)) { log skip "Step '$stepName' has no 'verify' function defined" ; return }
+  if (-not (_yana_eval_conditions -Step $Step)) { log skip "Step '$stepName' conditions not met" ; return }
   log info "Verifying step: $stepName using function: $stepFunction"
   try {
     _yana_execute_fn -RootDir $RootDir -Prefix 'yanaverify' -Name $stepFunction -Arguments $Step['args']
   } catch [System.Management.Automation.CommandNotFoundException] {
-    log skip "Verification function '$stepFunction' for step '$stepName' not found. Skipping verification."
+    log skip "Verification function '$stepFunction' for step '$stepName' not found"
   }
 }
 
@@ -247,15 +275,16 @@ function _yana_verify_step([hashtable]$Step, [string]$RootDir = $Script:YANA_SOU
 function _yana_apply_step([hashtable]$Step, [string]$RootDir = $Script:YANA_SOURCE) {
   $stepName = $Step['name']
   $applyFn = $Step['apply']
-  if ([string]::IsNullOrEmpty($applyFn)) { log skip "Step '$stepName' has no 'apply' function defined. Skipping." ; return }
+  if ([string]::IsNullOrEmpty($applyFn)) { log skip "Step '$stepName' has no 'apply' function defined" ; return }
+  if (-not (_yana_eval_conditions -Step $Step)) { log skip "Step '$stepName' conditions not met" ; return }
   $verifyResult = _yana_verify_step -Step $Step -RootDir $RootDir
-  if ($verifyResult) { log success "Step '$stepName' is already compliant. Skipping apply." ; return }
+  if ($verifyResult) { log success "Step '$stepName' is already compliant" ; return }
   log info "Applying step: $stepName using function: $applyFn"
   _yana_execute_fn -RootDir $RootDir -Prefix 'yanaapply' -Name $applyFn -Arguments $Step['args']
   $verifyResult = _yana_verify_step -Step $Step -RootDir $RootDir
   if ($null -eq $verifyResult) { return }
-  if ([bool]$verifyResult) { log success "Step '$stepName' is fully compliant." ; return }
-  throw "Step '$stepName' is not compliant after apply. Verification failed."
+  if ([bool]$verifyResult) { log success "Step '$stepName' is fully compliant" ; return }
+  throw "Step '$stepName' is not compliant after apply"
 }
 
 function _yana_mode_fetch {
@@ -295,7 +324,7 @@ function _yana_mode_verify {
     # The source of the YANA Module to verify (e.g., a file path or URL).
     [string]$Source
   )
-  if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''verify'' mode.' }
+  if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''verify'' mode' }
   _yana_mode_fetch -Source $Source
   log info "Verifying YANA Module from source: $Source"
 
@@ -304,8 +333,8 @@ function _yana_mode_verify {
   foreach ($step in $Script:YANA_STEPS) {
     $verifyResult = _yana_verify_step -Step $step
     if ($null -eq $verifyResult) { continue }
-    if ([bool]$verifyResult) { log success "Step '$($step['name'])' is compliant." ; continue }
-    throw "Step '$($step['name'])' is not compliant. Verification failed."
+    if ([bool]$verifyResult) { log success "Step '$($step['name'])' is compliant" ; continue }
+    throw "Step '$($step['name'])' is not compliant"
   }
   log success "YANA Module verified successfully: $Script:YANA_SOURCE"
 }

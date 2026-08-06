@@ -27,7 +27,8 @@
     "i": 1,
     "a": [1, 2, 3],
     "b": true,
-    "s": "s"
+    "s": "s",
+    "empty": ""
   },
   "steps": [
     {
@@ -36,7 +37,13 @@
       "args": {
         "path": "${param:marker_file}",
         "content": "STATUS=ACTIVE"
-      }
+      },
+      "if": [
+        "${var:b}"
+      ],
+      "if_not": [
+        "${var:empty}"
+      ]
     },
     {
       "name": "Ensure application configuration exists",
@@ -44,7 +51,9 @@
       "args": {
         "path": "${param:config_file}",
         "content": "marker_file=${var:marker_file_content}\nPORT=${param:service_port}\nUSER=${var:user}"
-      }
+      },
+      "if": "${var:b}",
+      "if_not": "${var:empty}"
     }
   ]
 }
