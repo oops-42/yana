@@ -36,7 +36,13 @@
       "args": {
         "path": "${param:marker_file}",
         "content": "STATUS=ACTIVE"
-      }
+      },
+      "if": [
+        "${var:b}"
+      ],
+      "if_not": [
+        "${var:s}"
+      ]
     },
     {
       "name": "Ensure application configuration exists",
