@@ -194,9 +194,9 @@ yana_decrypt_string() {
 # The function name should be in the format '[module/]script:function'.
 # If the 3rd argument is 'true', the function is marked as sensitive, its output will be encrypted before being returned.
 _yana_execute_fn() {
-	builtin local _yana_fn_prefix="$1" _yana_fn="$2" _yana_sensitive="${3:-false}"
-	builtin local -n _yana_output_ref="$4"
-	builtin local -n _yana_args_ref="$5"
+	builtin local _yana_fn_prefix="$1" _yana_fn="$2"
+	builtin local -n _yana_output_ref="$3"
+	builtin local -n _yana_args_ref="$4"
 	log trace "_yana_execute_fn '$_yana_fn' with arguments: ${_yana_args_ref[*]}"
 
 	# Parse function name. Format: `[module/]script:function`
@@ -235,7 +235,7 @@ _yana_execute_fn() {
 			for key in "${!_yana_args_ref[@]}"; do
 				YANA_ARGS["$key"]=$(yana_decrypt_string "${_yana_args_ref[$key]}")
 			done
-			if [[ $_yana_sensitive == true ]]; then
+			if [[ ${sensitive:-false} == true ]]; then
 				"$YANA_COMMAND" | yana_encrypt_string
 			else
 				"$YANA_COMMAND"
@@ -276,7 +276,7 @@ _yana_expand_var() {
 	_yana_var_secret=$(jq -r '.secret == true' <<<"$_yana_var_val") || throw "Failed to parse JSON for variable '$_yana_var_name'. Ensure it is valid JSON." $ERR_DATA_FORMAT
 	_yana_var_args_raw=$(jq -r '(.args | objects) // {} | to_entries | map("\(.key):\(.value|@text|@base64)") | .[]' <<<"$_yana_var_val") || throw "Failed to parse JSON for variable '$_yana_var_name'. Ensure it is valid JSON." $ERR_DATA_FORMAT
 	_yana_resolve_args "$_yana_var_args_raw" _yana_var_args || throw "Failed to resolve arguments for variable '$_yana_var_name'." $ERR_DATA_FORMAT
-	_yana_execute_fn 'yanavar' "${_yana_var_fn}" "${_yana_var_secret}" _output_ref _yana_var_args || throw "Function 'yanavar_$_yana_var_fn' failed" $?
+	sensitive="${_yana_var_secret}" _yana_execute_fn 'yanavar' "${_yana_var_fn}" _output_ref _yana_var_args || throw "Function 'yanavar_$_yana_var_fn' failed" $?
 	log trace "Function 'yanavar_$_yana_var_fn' executed and output: $_output_ref"
 	if [[ $_yana_var_cached == true ]]; then
 		_yana_vars_ref["$_yana_var_name"]=$(jq -R '.' <<<"$_output_ref") || throw "Failed to cache resolved value for variable '$_yana_var_name' as JSON string." $ERR_DATA_FORMAT
@@ -392,7 +392,7 @@ _yana_verify_step() {
 
 	log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if state is compliant)"
 	builtin local _rc=0
-	_yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" false _yana_step_output _yana_step_args || _rc=$?
+	_yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" _yana_step_output _yana_step_args || _rc=$?
 	if [[ $_rc -eq 0 ]]; then
 		log success "  - [COMPLIANT] ${YANA_STEP[name]} (state is compliant)"
 		return 0
@@ -423,7 +423,7 @@ _yana_apply_step() {
 		log skip "  - [SKIPPED] ${YANA_STEP[name]} (verify function undefined)"
 	else
 		log info "  - [VERIFYING] ${YANA_STEP[name]} (checking if changes are needed)"
-		_yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" false _yana_step_output _yana_step_args || _rc=$?
+		_yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" _yana_step_output _yana_step_args || _rc=$?
 		if [[ $_rc -eq 0 ]]; then # compliant, no changes needed
 			log success "  - [COMPLIANT] ${YANA_STEP[name]} (no changes needed)"
 			return 0
@@ -439,7 +439,7 @@ _yana_apply_step() {
 	fi
 	log info "  - [APPLYING] ${YANA_STEP[name]} (making changes)"
 	_rc=0
-	_yana_execute_fn 'yanaapply' "${YANA_STEP['apply']}" false _yana_step_output _yana_step_args || _rc=$?
+	_yana_execute_fn 'yanaapply' "${YANA_STEP['apply']}" _yana_step_output _yana_step_args || _rc=$?
 	if [[ $_rc -eq 0 ]]; then
 		log success "  - [APPLIED] ${YANA_STEP[name]} (changes applied)"
 	else
@@ -448,7 +448,7 @@ _yana_apply_step() {
 	fi
 	[[ -z ${YANA_STEP['verify']} ]] && return 0
 	log info "  - [POST-VERIFYING] ${YANA_STEP[name]} (checking if changes stuck)"
-	if _yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" false _yana_step_output _yana_step_args; then
+	if _yana_execute_fn 'yanaverify' "${YANA_STEP['verify']}" _yana_step_output _yana_step_args; then
 		log success "  - [POST-COMPLIANT] ${YANA_STEP[name]} (changes verified)"
 	else
 		log error "  - [POST-NON-COMPLIANT] ${YANA_STEP[name]} (changes did not stick)"

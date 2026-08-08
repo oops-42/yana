@@ -33,9 +33,9 @@ function YANAtest:secrets {
 
 	_decrypted_string=$(
 		yana_decrypt_string \
-			"hello $_encrypted_string ${_encrypted_string}_${_encrypted_string}-$_malformed_string"
+			"hello $_encrypted_string ${_encrypted_string}_<yanasecret:${_encrypted_string}>-$_malformed_string"
 	) || throw 'Failed to decrypt string.'
-	[[ $_decrypted_string == "hello ${_test_string} ${_test_string}_${_test_string}-$_malformed_string" ]] ||
+	[[ $_decrypted_string == "hello ${_test_string} ${_test_string}_<yanasecret:${_test_string}>-$_malformed_string" ]] ||
 		throw "Decrypted multiple encrypted string entries should match original. Got: '$_decrypted_string'"
 
 	_yana_cleanup_encryption
