@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-RUN apt-get update -qq && apt-get install -y -qq bash jq
+RUN apt-get update -qq && apt-get install -y -qq bash jq openssl
 
 WORKDIR /yana
 COPY *.sh .
