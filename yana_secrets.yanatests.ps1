@@ -42,6 +42,10 @@ function YANAtest:secrets() {
 		throw "Decrypted string should match original. Expected: '$_test_string', got: '$_decrypted_string'"
 	}
 
+	$_malformed_string = $_encrypted_string.Substring(0, $_encrypted_string.Length - 5) + '0000>'
+	$decrypted_string = yana_decrypt_string $_malformed_string
+	if ($decrypted_string -ne $_malformed_string) { throw "Decrypted malformed string should match original. Got: '$decrypted_string'"	}
+
 	$_malformed_string1 = [string]::Concat('<yanasecret:', '0' * 10, '>')
 	$_malformed_string2 = [string]::Concat('<yanasecret:', '0' * 100, '>')
 
