@@ -116,12 +116,14 @@ _yana_check_prerequisites() {
 _yana_initialize_encryption() {
 	_YANA_SECRET_KEY='' _YANA_SECRET_ALGORITHM='aes-256-cbc' _YANA_SECRET_PREFIX='<yanasecret:' _YANA_SECRET_SUFFIX='>'
 	builtin local tmp
-	[[ -d /dev/shm ]] && tmp='/dev/shm' || tmp="${TMPDIR:-/tmp}"
-	tmp=$(mktemp -p "$tmp")
-	chmod 600 "$tmp"
-	openssl rand -hex 32 >"$tmp"
-	builtin exec {_YANA_SECRET_KEY}<"$tmp"
-	rm -f "$tmp"
+	{
+		[[ -d /dev/shm ]] && tmp='/dev/shm' || tmp="${TMPDIR:-/tmp}"
+		tmp=$(mktemp -p "$tmp")
+		chmod 600 "$tmp"
+		openssl rand -hex 32 >"$tmp"
+		builtin exec {_YANA_SECRET_KEY}<"$tmp"
+		rm -f "$tmp"
+	} || throw "Failed to initialize encryption" $ERR_GENERAL
 }
 # Cleans up the secret management by closing the secure file descriptor and unsetting the key variable.
 _yana_cleanup_encryption() {
@@ -227,6 +229,7 @@ _yana_execute_fn() {
 		#shellcheck disable=SC2034
 		(
 			set +x
+			set -o pipefail
 			builtin local YANA_COMMAND="${_yana_fn_prefix}_${_yana_fn_func}"
 			builtin local -A YANA_ARGS
 			for key in "${!_yana_args_ref[@]}"; do
@@ -542,7 +545,9 @@ _yana_mode_apply() {
 _yana_() {
 	_yana_initialize_encryption
 	if [[ ${BASH_SOURCE[1]:-} != *bashdb ]]; then
-		trap '_yana_cleanup_encryption' EXIT INT TERM ERR
+		trap '_yana_cleanup_encryption' EXIT ERR
+		trap '_yana_cleanup_encryption; exit 130' INT
+		trap '_yana_cleanup_encryption; exit 143' TERM
 	fi
 
 	builtin local YANA_MODE="${YANA_MODE:-}" YANA_SOURCE="${YANA_SOURCE:-}" YANA_LOGFILE="${YANA_LOGFILE:-}" YANA_TRACE="${YANA_TRACE:-false}" YANA_DEBUG="${YANA_DEBUG:-false}" _yana_show_help=false
