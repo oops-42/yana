@@ -371,9 +371,9 @@ function _yana_mode_apply([string]$Source) {
   _yana_mode_fetch -Source $Source
   log info "Applying YANA Module from source: $Source"
 
-  _yana_initialize_encryption
   $Script:YANA_SOURCE = _yana_load_spec_file -Source $Source
   _yana_check_prerequisites -Prerequisites $Script:YANA_REQUIRES
+  _yana_initialize_encryption
   foreach ($step in $Script:YANA_STEPS) {
     _yana_apply_step -Step $step
   }
@@ -384,9 +384,9 @@ function _yana_mode_verify([string]$Source) {
   _yana_mode_fetch -Source $Source
   log info "Verifying YANA Module from source: $Source"
 
-  _yana_initialize_encryption
   $Script:YANA_SOURCE = _yana_load_spec_file -Source $Source
   _yana_check_prerequisites -Prerequisites $Script:YANA_REQUIRES
+  _yana_initialize_encryption
   foreach ($step in $Script:YANA_STEPS) {
     $verifyResult = _yana_verify_step -Step $step
     if ($null -eq $verifyResult) { continue }

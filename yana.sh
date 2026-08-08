@@ -505,13 +505,13 @@ _yana_mode_verify() {
 	[[ -z $YANA_SOURCE ]] && throw 'No source specified'
 	_yana_mode_fetch
 	log info "Verifying YANA Module: $YANA_SOURCE"
-	# Implement the verify logic here
 	builtin local -A YANA_SPEC YANA_PARAMS YANA_VARS
 	builtin local -a YANA_STEPS YANA_REQUIRES
 	_yana_load_spec_file
 	#shellcheck disable=SC2086
 	_yana_check_prerequisites "${YANA_REQUIRES[@]}"
 
+	_yana_initialize_encryption
 	builtin local _yana_step
 	# Execute steps
 	for _yana_step in "${YANA_STEPS[@]}"; do
@@ -531,6 +531,7 @@ _yana_mode_apply() {
 	#shellcheck disable=SC2086
 	_yana_check_prerequisites "${YANA_REQUIRES[@]}"
 
+	_yana_initialize_encryption
 	builtin local _yana_step
 	# Execute steps
 	for _yana_step in "${YANA_STEPS[@]}"; do
@@ -543,7 +544,6 @@ _yana_mode_apply() {
 }
 # Main entry point.
 _yana_() {
-	_yana_initialize_encryption
 	if [[ ${BASH_SOURCE[1]:-} != *bashdb ]]; then
 		trap '_yana_cleanup_encryption' EXIT ERR
 		trap '_yana_cleanup_encryption; exit 130' INT
