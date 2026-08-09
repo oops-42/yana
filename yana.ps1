@@ -362,39 +362,29 @@ function _yana_apply_step([hashtable]$Step, [string]$RootDir = $Script:YANA_SOUR
 
 # Pulls, unpacks and verifies the YANA Module as yanapack from the specified source (url/path).
 # Returns path to the unpacked YANA Module.
-function _yana_mode_pull([ValidateNotNullOrEmpty][string]$Source = $Env:YANA_SOURCE) {
-  # if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''pull'' mode.' }
-  log info "Pulling YANA Module from source: $Source"
-  # check if the source is a URL or a local path
-  if (Test-Path -Path $Source) {
-    $Source = [System.IO.Path]::GetFullPath($Source)
-    log debug "Source '$Source' is a local path. Using it directly."
-    if (Test-Path -Path $Source -PathType Leaf) {
-      log debug "Source '$Source' is a file"
-    } else {
-      log debug "Source '$Source' is a directory"
-      $Source = [System.IO.Path]::Combine($Source, '.yana.json')
-    }
-  } else {
-    log debug "Source '$Source' is not a local path. Checking if it's a valid URL..."
+function _yana_mode_pull([ValidateNotNullOrEmpty()][string]$Source = $Env:YANA_SOURCE) {
+  if ($Source -match '^https?://') {
     $uri = $null
     [uri]::TryCreate($Source, [uriKind]::Absolute, [ref]$uri) | Out-Null
-    if ($null -eq $uri -or ($uri.Scheme -notin 'http', 'https', 'file')) { throw "Source '$Source' is not a valid URL." }
-    log debug "Source '$Source' is a URL. Downloading..."
+    if ($null -eq $uri -or ($uri.Scheme -notin 'http', 'https')) { throw "Source '$Source' is not a valid URL." }
+    log info 'Downloading YANA Module from provided source'
     $tempDir = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), [System.Guid]::NewGuid().ToString())
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     $zipFile = [System.IO.Path]::Combine($tempDir, 'yanapack.zip')
-    Invoke-WebRequest -Uri $Source -OutFile $zipFile -ErrorAction Stop -UseBasicParsing
+    Invoke-WebRequest -Uri $Source -OutFile $zipFile -ErrorAction Stop -UseBasicParsing -TimeoutSec 30
     log debug "Downloaded YANA Module to '$zipFile'. Unpacking..."
     Expand-Archive -Path $zipFile -DestinationPath $tempDir -Force
     Remove-Item -Path $zipFile -Force
     # Later add verification of the downloaded module (e.g., checksum, signature) if needed.
     $Source = $tempDir
   }
+  $Source = [System.IO.Path]::GetFullPath($Source)
+  if (Test-Path -Path $Source -PathType Container) { $Source = [System.IO.Path]::Combine($Source, '.yana.json') }
+  if (-not (Test-Path -Path $Source -PathType leaf)) { throw "Source '$Source' does not exist." }
   return $Source
 }
 #	Applies the specified YANA Module.
-function _yana_mode_apply([ValidateNotNullOrEmpty][string]$Source = $Env:YANA_SOURCE) {
+function _yana_mode_apply([ValidateNotNullOrEmpty()][string]$Source = $Env:YANA_SOURCE) {
   # if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''apply'' mode.' }
   $Source = _yana_mode_pull -Source $Source
   log info "Applying YANA Module from source: $Source"
@@ -407,7 +397,7 @@ function _yana_mode_apply([ValidateNotNullOrEmpty][string]$Source = $Env:YANA_SO
   }
   log success "YANA Module applied successfully: $Script:YANA_SOURCE"
 }
-function _yana_mode_verify([ValidateNotNullOrEmpty][string]$Source = $Env:YANA_SOURCE) {
+function _yana_mode_verify([ValidateNotNullOrEmpty()][string]$Source = $Env:YANA_SOURCE) {
   # if ([string]::IsNullOrEmpty($Source)) { throw 'Source is required for ''verify'' mode' }
   $Source = _yana_mode_pull -Source $Source
   log info "Verifying YANA Module from source: $Source"

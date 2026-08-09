@@ -496,25 +496,24 @@ _yana_source_dir() { [[ -d "$YANA_SOURCE" ]] && builtin echo "$YANA_SOURCE" || d
 # Pulls and unpacks the YANA Module from the specified source (local path or URL).
 _yana_mode_pull() {
 	[[ -z $YANA_SOURCE ]] && throw 'No source specified' $ERR_MISUSE
-	log info "Pulling YANA Module: $YANA_SOURCE"
 	if [[ $YANA_SOURCE =~ ^https?:// ]]; then
 		builtin local _yana_tmp_dir="${TMPDIR:-/tmp}/yana-$(date +%s%N)"
 		mkdir -p "$_yana_tmp_dir" || throw "Failed to create temporary directory '$_yana_tmp_dir'." $ERR_GENERAL
-		log debug "Downloading YANA Module from URL: $YANA_SOURCE"
-		if ! curl -fsSL "$YANA_SOURCE" -o "$_yana_tmp_dir/yana_module.tar.gz"; then
-			rm -rf "$_yana_tmp_dir"
-			throw "Failed to download YANA Module from URL: $YANA_SOURCE" $ERR_NETWORK
-		fi
-		log debug "Extracting YANA Module to temporary directory: $_yana_tmp_dir"
-		if ! tar -xzf "$_yana_tmp_dir/yana_module.tar.gz" -C "$_yana_tmp_dir"; then
-			rm -rf "$_yana_tmp_dir"
-			throw "Failed to extract YANA Module from downloaded archive." $ERR_GENERAL
-		fi
+		log info 'Downloading YANA Module from provided source'
+		curl -fsSL "$YANA_SOURCE" -o "$_yana_tmp_dir/yana_module.tar.gz" || {
+			[[ ${YANA_DEBUG:-false} == true ]] || rm -rf "$_yana_tmp_dir"
+			throw 'Failed to download YANA Module' $ERR_GENERAL
+		}
+		log debug "Extracting downloaded YANA Module to temporary directory: $_yana_tmp_dir"
+		tar -xzf "$_yana_tmp_dir/yana_module.tar.gz" -C "$_yana_tmp_dir" || {
+			[[ ${YANA_DEBUG:-false} == true ]] || rm -rf "$_yana_tmp_dir"
+			throw 'Failed to extract YANA Module from downloaded archive' $ERR_GENERAL
+		}
 		YANA_SOURCE="$_yana_tmp_dir"
 	fi
 	[[ -e $YANA_SOURCE ]] || throw "'$YANA_SOURCE': No such file or directory" $ERR_NO_INPUT
 	[[ -d $YANA_SOURCE ]] && YANA_SOURCE="$YANA_SOURCE/.yana.json"
-	YANA_SOURCE=$(realpath "$YANA_SOURCE" 2>/dev/null) || throw
+	YANA_SOURCE=$(realpath "$YANA_SOURCE") || throw "'$YANA_SOURCE': Failed to resolve real path" $ERR_GENERAL
 	[[ -f $YANA_SOURCE ]] || throw "'$YANA_SOURCE': No such file" $ERR_NO_INPUT
 	# Here we will validate the integrity of the YANA Module.
 }
