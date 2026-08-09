@@ -9,7 +9,7 @@ Less than 500 lines of commented and unit-tested code with minimal dependencies.
 
 **YANA Engine** works in 3 modes:
 
-* `pull` - fetches a `yanapack` from a remote URL or local path
+* `pull` - pulls a `yanapack` from a remote URL or uses local path
 * `verify` - checks the state of the managed node against the `yanaspec`
 * `apply` - applies the `yanapack` to the managed node
 
