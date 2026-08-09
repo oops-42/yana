@@ -480,13 +480,13 @@ _yana_load_spec_file() {
 	builtin readarray -t YANA_STEPS < <(jq -r -c '.steps // [] | .[] | @base64' "$YANA_SOURCE")
 	YANA_PARAMS=()
 	# Extract parameters into associative array
-	builtin local _yana_spec_params_raw _yana_spec_param _yana_spec_param_key _yana_spec_param_value _yana_spec_param_value_b64
+	builtin local _yana_spec_params_raw _yana_spec_param _yana_spec_param_key _yana_spec_param_value _yana_spec_param_value_b64 _yana_ev_key
 	while IFS= builtin read -r _yana_spec_param; do
 		[[ -n $_yana_spec_param ]] || continue
 		_yana_spec_param_key="${_yana_spec_param%%:*}"
 		_yana_spec_param_value=$(base64 -d <<<"${_yana_spec_param#*:}") || throw "Failed to decode base64 parameter value for key '$_yana_spec_param_key'." $ERR_DATA_FORMAT
-		ev_key="YANA_PARAM_$_yana_spec_param_key"
-		YANA_PARAMS["$_yana_spec_param_key"]="${!ev_key-$_yana_spec_param_value}"
+		_yana_ev_key="YANA_PARAM_$_yana_spec_param_key"
+		YANA_PARAMS["$_yana_spec_param_key"]="${!_yana_ev_key-$_yana_spec_param_value}"
 	done < <(jq -r '(.params | objects) // {} | to_entries | map("\(.key):\(.value|@text|@base64)") | .[]' "$YANA_SOURCE")
 	YANA_VARS=()
 	# Extract variables into associative array
