@@ -432,7 +432,7 @@ function _yana_ {
     [Parameter(Position = 0)]
     [ValidateSet('apply', 'verify', 'pull', 'version')]
     [string]$Mode = $Env:YANA_MODE,
-    # If specified, the source of the YANA Module to apply/verify/fetch.
+    # If specified, the source of the YANA Module to apply/verify/pull.
     # [Parameter(Position = 1)]
     [string]$Source = $Env:YANA_SOURCE,
     # If specified, outputs log messages to the given file.
