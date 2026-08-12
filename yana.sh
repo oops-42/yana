@@ -48,7 +48,7 @@ _yana_usage() {
 	*)
 		builtin echo "Usage: yana.sh <general options> [mode] <mode options>"
 		builtin echo "Modes:"
-		builtin echo "  version									 	 Displays the version of YANA."
+		builtin echo "  version                    Displays the version of YANA."
 		builtin echo "  apply                      Applies the specified YANA Module."
 		builtin echo "  verify                     Compares the state of the system with the state specified by the YANA Module without making any changes."
 		builtin echo "  pull                       Pulls the specified YANA Module."
