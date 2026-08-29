@@ -21,13 +21,13 @@ set -eEuo pipefail
 FUNCNEST=100
 [[ -z ${ERR_GENERAL:-} ]] && builtin readonly ERR_GENERAL=1 ERR_MISUSE=64 ERR_DATA_FORMAT=65 ERR_NO_INPUT=66
 # Prints out the usage information. Params: YANA_MODE.
-_yanatool_usage() {
+function _yanatool_usage {
 	case "${YANA_MODE:-}" in
 	test)
-		builtin echo 'Usage: yana-tool.sh test -source <file|dir>'
+		builtin echo 'Usage: yana-tool.sh test [-source <file|dir>]'
 		builtin echo '  Runs tests from the specified file or directory.'
 		builtin echo 'Options:'
-		builtin echo '  -source <file|dir>         Specifies the path to YANA test files or directories. Supports wildcards.'
+		builtin echo '  -source <file|dir>         Specifies the path to YANA test files or directories. If not specified, defaults to the current directory.'
 		;;
 	version)
 		builtin echo 'Usage: yana-tool.sh version'
@@ -61,7 +61,7 @@ _yanatool_usage() {
 # Var: YANA_TRACE - enable TRACE and DEBUG messages
 # Var: YANA_DEBUG - enable DEBUG messages
 # Var: YANA_LOGFILE - path to log file
-log() {
+function log {
 	builtin local _level="${1^^}" _message="${2?Message argument is required}"
 	[[ ${YANA_TRACE:-false} != true && $_level == TRACE ]] && return 0
 	[[ ${YANA_DEBUG:-${YANA_TRACE:-false}} != true && $_level == DEBUG ]] && return 0
@@ -90,7 +90,7 @@ log() {
 # Throws an error message and exits the script with# the specified return code.
 # Params: 1 - message, 2 - return code (optional, default: $ERR_GENERAL)
 # Vars: message, rc
-throw() {
+function throw {
 	set +x
 	builtin local _message="${1:-${message:-Halted}}"
 	builtin local _rc="${2:-${rc:-$ERR_GENERAL}}"
@@ -106,32 +106,67 @@ throw() {
 }
 # Tests if the required commands are available in the system PATH.
 # Params: List of command names to check.
-_yanatool_check_prerequisites() {
+function _yanatool_check_prerequisites {
 	builtin local cmd
 	for cmd in "$@"; do builtin command -v "$cmd" &>/dev/null || throw "Prerequisite '$cmd' is not installed or not in the system PATH." $ERR_MISUSE; done
 }
+# Runs the tests from the specified test file.
+# Params: 1 - test file to execute.
+# Outputs: YanaTestResult object for each test executed.
+function _yanatool_test_run_file {
+	builtin local _test_file="$1"
+	[[ -f $_test_file ]] || throw "Test file '$_test_file' does not exist."
+	log info "Executing tests from file: $_test_file"
+	# # shellcheck disable=SC1090
+	# # shellcheck source=/dev/null
+	# builtin source "$_test_file"
+}
+# Fetches the list of test files from the specified source.
+# Vars: YANA_SOURCE - path to the test file or directory containing tests. If not specified, defaults to the current directory.
+# Params: Ref to an array variable to store the test files.
+# Outputs: Populates the specified array variable with the list of test files.
+function _yanatool_get_test_files {
+	builtin local _test_files_ref="$1"
+	[[ -z $_test_files_ref ]] && throw 'No reference variable specified for test files.'
+	_yanatool_check_prerequisites find
+	builtin local -n _test_files="$_test_files_ref"
+	_test_files=()
+	if [[ -f $YANA_SOURCE ]]; then
+		_test_files+=("$(realpath "$YANA_SOURCE")")
+	elif [[ -d $YANA_SOURCE ]]; then
+		# Searches for test files (*.yanatests.sh) in the specified directory and its subdirectories recursively.
+		builtin readarray -t _test_files < <(find "$YANA_SOURCE" -type f -name '*.yanatests.sh' -exec realpath {} \; 2>/dev/null)
+	fi
+}
 # Outputs the version of YANA.
-_yanatool_mode_version() { builtin echo "$YANA_VERSION"; }
+function _yanatool_mode_version { builtin echo "$YANA_VERSION"; }
 # Runs tests from the specified source file or directory
-# Vars: YANA_SOURCE - path to the source file or directory containing tests. Accepts wildcards.
-_yanatool_mode_test() {
-	builtin local _source="${source:-$YANA_SOURCE}" _test_files=()
-	[[ -z $_source ]] && throw 'No source specified'
+# Vars: YANA_SOURCE - path to the test file or directory containing tests.
+function _yanatool_mode_test {
 	_yanatool_check_prerequisites base64 awk
-	[[ -e $_source ]] || throw "Source '$_source' does not exist."
-  log info "Running mode 'test' from source: $_source"
-  # Implement test execution logic here
-  log info "Tests executed successfully from source: $_source"
+  log info "Running mode 'test' from source: $YANA_SOURCE"
+	builtin local -a _yana_test_files
+	_yanatool_get_test_files _yana_test_files
+	for _test_file in "${_yana_test_files[@]}"; do
+		_yanatool_test_run_file "$_test_file"
+	done
+  log info "Tests executed successfully from source: $YANA_SOURCE"
 }
 # Main entry point.
-_yanatool_() {
+function _yanatool_main {
 	# if [[ ${BASH_SOURCE[1]:-} != *bashdb ]]; then
 	# 	trap '_yana_cleanup_encryption' EXIT ERR
 	# 	trap '_yana_cleanup_encryption; exit 130' INT
 	# 	trap '_yana_cleanup_encryption; exit 143' TERM
 	# fi
 
-	builtin local YANA_MODE="${YANA_MODE:-}" YANA_SOURCE="${YANA_SOURCE:-}" YANA_LOGFILE="${YANA_LOGFILE:-}" YANA_TRACE="${YANA_TRACE:-false}" YANA_DEBUG="${YANA_DEBUG:-false}" _yana_show_help=false
+	builtin local YANA_MODE="${YANA_MODE:-}"
+	builtin local YANA_SOURCE="${YANA_SOURCE:-.}"
+	builtin local YANA_LOGFILE="${YANA_LOGFILE:-}"
+	builtin local YANA_TRACE="${YANA_TRACE:-false}"
+	builtin local YANA_DEBUG="${YANA_DEBUG:-false}"
+	builtin local YANA_FAIL_FAST="${YANA_FAIL_FAST:-}"
+	builtin local _yana_show_help=false
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		test | version) YANA_MODE="$1" ;;
@@ -146,6 +181,7 @@ _yanatool_() {
 			YANA_LOGFILE="$1"
 			;;
 		-help | --help) _yana_show_help=true ;;
+		-fail-fast | --fail-fast) YANA_FAIL_FAST=true ;;
 		*)
 			[[ $1 == -* ]] && throw "Unknown option: $1. Use -help to see available options."
 			throw "Unknown mode: $1. Use -help to see available modes."
@@ -167,5 +203,5 @@ if [[ -z ${BASH_SOURCE[1]:-} ]] || [[ ${BASH_SOURCE[1]:-} == *bashdb ]]; then
 	if [[ ${BASH_SOURCE[1]:-} != *bashdb ]]; then
 		trap 'log fatal "An unexpected error occurred at line $LINENO in function ${FUNCNAME[0]}."' ERR
 	fi
-	(_yanatool_ "$@") || builtin exit $?
+	(_yanatool_main "$@") || builtin exit $?
 fi
