@@ -10,12 +10,12 @@ if [ -z "${BASH_VERSION:-}" ] || [ "${BASH_VERSINFO[0]:-1}" -lt 4 ]; then
 fi
 
 # YANA_SOURCE='examples/linux'
-# YANA_MODE='test'
+YANA_MODE='test'
 # YANA_TRACE=true
 
 set -eEuo pipefail
 
-[[ -z ${YANA_TITLE:-} ]] && builtin readonly YANA_TITLE='YANA - Yet Another Node Automator (Bash) - Toolkit'
+[[ -z ${YANA_TITLE:-} ]] && builtin readonly YANA_TITLE='YANA - Yet Another Node Automator - Toolkit (Bash)'
 [[ -z ${YANA_VERSION:-} ]] && builtin readonly YANA_VERSION='YANAVERSIONPLACEHOLDER'
 
 FUNCNEST=100
@@ -110,16 +110,99 @@ function _yanatool_check_prerequisites {
 	builtin local cmd
 	for cmd in "$@"; do builtin command -v "$cmd" &>/dev/null || throw "Prerequisite '$cmd' is not installed or not in the system PATH." $ERR_MISUSE; done
 }
+
+# Invokes a specific test function and captures results.
+# Params:
+#  $1 <test_function> - A test function name to invoke.
+# Outputs: [YanaTestResult] with Passed and Failed tests.
+function _yanatool_test_invoke_test_function {
+	builtin local _test_fn="$1"
+	[[ -z $_test_fn ]] && throw 'No test function specified to invoke.'
+	log info "Invoking test function: $_test_fn"
+	builtin local _rc=0
+	(
+
+		# Used by throw() and fail() to output the caller function name and line number.
+		#shellcheck disable=SC2317
+		function _caller_info {
+			builtin caller 1 | awk '{print $3 ":" $1}'
+		}
+
+		# Marks the current test as failed.
+		# Prints a message indicating that the current test has failed.
+		# Increments the failed test count.
+		# shellcheck disable=SC2317
+		function fail {
+			builtin local _message="${1:-}"
+			builtin local _expected="${2:-}"
+			builtin local _actual="${3:-}"
+			log fail "Test failed: $_test_fn"
+			log fail "\tCaller: $(_caller_info)"
+			[[ "$#" -ge 1 ]] && log fail "\tMessage: $_message"
+			[[ "$#" -ge 2 ]] && log fail "\tExpected: '${_expected}'"
+			[[ "$#" -ge 3 ]] && log fail "\tGot: '${_actual}'"
+			builtin exit 1
+		}
+		# Mocks a `throw` function for testing purposes.
+		# shellcheck disable=SC2317,SC2034
+		function throw {
+			echo "THROW: ${1:-${message:-Halted}}"
+			builtin exit "${2:-$ERR_GENERAL}"
+		}
+		# shellcheck disable=SC2086
+		"$_test_fn"
+	) || _rc=$?
+	return "$_rc"
+}
+# Discovers test functions based prefixed with "yanatest_"
+# Outputs: List of yanatest function names
+function _yanatool_test_discover {
+	# builtin declare -F | awk '{print $3}' | grep '^yanatest_' >&2
+	builtin declare -F | awk '{print $3}' | grep '^yanatest_' || true
+}
 # Runs the tests from the specified test file.
 # Params: 1 - test file to execute.
 # Outputs: YanaTestResult object for each test executed.
 function _yanatool_test_run_file {
 	builtin local _test_file="$1"
 	[[ -f $_test_file ]] || throw "Test file '$_test_file' does not exist."
+	log debug 'Cleaning up previously defined test functions before executing the new test file.'
+	for _test_func in $(_yanatool_test_discover); do
+		unset -f "$_test_func"
+	done
 	log info "Executing tests from file: $_test_file"
-	# # shellcheck disable=SC1090
-	# # shellcheck source=/dev/null
-	# builtin source "$_test_file"
+	log info 'Importing tests from file' "$_test_file"
+	builtin source "$_test_file" || {
+		log error 'Failed to import test file' "$_test_file"
+		# YanaTestResult
+		builtin return 1
+	}
+	builtin local _test_func YANA_tests_passed=0 YANA_tests_failed=0
+	for _test_func in $(_yanatool_test_discover); do
+		builtin local _rc=0
+		(_yanatool_test_invoke_test_function "$_test_func") || _rc=$?
+		if [[ $_rc -eq 0 ]]; then
+			log pass "Test passed: $_test_func"
+			((YANA_tests_passed++))
+			((YANA_test_total_passed++))
+		else
+			((YANA_tests_failed++))
+			((YANA_test_total_failed++))
+			if [[ -n "${YANA_FAILFAST:-}" ]]; then
+				log fail 'Fail-fast is enabled. Stopping further test execution.'
+				builtin exit "$_rc"
+			fi
+		fi
+	done
+	log info "$YANA_tests_passed test(s) passed from file: $_test_file"
+	if [[ $YANA_tests_failed -gt 0 ]]; then
+		log error "$YANA_tests_failed test(s) failed from file: $_test_file"
+		if [[ -n "${YANA_FAILFAST:-}" ]]; then
+			log error 'Fail-fast is enabled. Stopping further test execution.'
+			builtin exit 1
+		fi
+		return 1
+	fi
 }
 # Fetches the list of test files from the specified source.
 # Vars: YANA_SOURCE - path to the test file or directory containing tests. If not specified, defaults to the current directory.
@@ -144,13 +227,19 @@ function _yanatool_mode_version { builtin echo "$YANA_VERSION"; }
 # Vars: YANA_SOURCE - path to the test file or directory containing tests.
 function _yanatool_mode_test {
 	_yanatool_check_prerequisites base64 awk
-  log info "Running mode 'test' from source: $YANA_SOURCE"
+	log info "Running mode 'test' from source: $YANA_SOURCE"
 	builtin local -a _yana_test_files
 	_yanatool_get_test_files _yana_test_files
+
+	builtin local _test_func YANA_test_total_passed=0 YANA_test_total_failed=0
 	for _test_file in "${_yana_test_files[@]}"; do
 		_yanatool_test_run_file "$_test_file"
 	done
-  log info "Tests executed successfully from source: $YANA_SOURCE"
+	log info "TOTAL PASSED: $YANA_test_total_passed"
+	if [[ $YANA_test_total_failed -gt 0 ]]; then
+		log fail "TOTAL FAILED: $YANA_test_total_failed"
+		return 1
+	fi
 }
 # Main entry point.
 function _yanatool_main {
@@ -165,7 +254,7 @@ function _yanatool_main {
 	builtin local YANA_LOGFILE="${YANA_LOGFILE:-}"
 	builtin local YANA_TRACE="${YANA_TRACE:-false}"
 	builtin local YANA_DEBUG="${YANA_DEBUG:-false}"
-	builtin local YANA_FAIL_FAST="${YANA_FAIL_FAST:-}"
+	builtin local YANA_FAILFAST="${YANA_FAILFAST:-}"
 	builtin local _yana_show_help=false
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -181,16 +270,20 @@ function _yanatool_main {
 			YANA_LOGFILE="$1"
 			;;
 		-help | --help) _yana_show_help=true ;;
-		-fail-fast | --fail-fast) YANA_FAIL_FAST=true ;;
+		-failfast | --failfast) YANA_FAILFAST=true ;;
 		*)
-			[[ $1 == -* ]] && throw "Unknown option: $1. Use -help to see available options."
-			throw "Unknown mode: $1. Use -help to see available modes."
+			if [[ $1 == -* ]]; then
+				log error "Unknown option: $1. Use -help to see available options."
+			else
+				log error "Unknown mode: $1. Use -help to see available modes."
+			fi
+			builtin exit "$ERR_MISUSE"
 			;;
 		esac
 		builtin shift
 	done
 	# Display the title and version information
-	log info "$YANA_TITLE" "Version: $YANA_VERSION" >&2
+	log info "$YANA_TITLE | Version: $YANA_VERSION" >&2
 	if [[ $_yana_show_help == true ]]; then
 		_yanatool_usage
 		builtin return 0
@@ -201,7 +294,7 @@ function _yanatool_main {
 if [[ -z ${BASH_SOURCE[1]:-} ]] || [[ ${BASH_SOURCE[1]:-} == *bashdb ]]; then
 	# Proceed with the script execution only if it is executed directly or under bashdb.
 	if [[ ${BASH_SOURCE[1]:-} != *bashdb ]]; then
-		trap 'log fatal "An unexpected error occurred at line $LINENO in function ${FUNCNAME[0]}."' ERR
+		trap 'throw "An unexpected error occurred at line $LINENO in function ${FUNCNAME[0]}."' ERR
 	fi
 	(_yanatool_main "$@") || builtin exit $?
 fi
