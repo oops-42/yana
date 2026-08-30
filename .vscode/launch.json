@@ -13,17 +13,31 @@
             "terminalKind": "integrated"
         },
         {
-            "name": "Bash-Debug (yana-test)",
+            "name": "Bash-Debug (yana-tool test)",
             "type": "bashdb",
             "request": "launch",
             "cwd": "${workspaceFolder}",
-            "program": "${workspaceFolder}/yana-test.sh",
+            "program": "${workspaceFolder}/yana-tool.sh",
             "args": [
-                "-testfile",
+                "test",
+                "-failfast",
+                "-source",
                 "${relativeFile}"
             ],
             "terminalKind": "integrated"
         },
+        // {
+        //     "name": "Bash-Debug (yana-test)",
+        //     "type": "bashdb",
+        //     "request": "launch",
+        //     "cwd": "${workspaceFolder}",
+        //     "program": "${workspaceFolder}/yana-test.sh",
+        //     "args": [
+        //         "-testfile",
+        //         "${relativeFile}"
+        //     ],
+        //     "terminalKind": "integrated"
+        // },
         {
             "name": "PowerShell Launch Current File",
             "type": "PowerShell",
