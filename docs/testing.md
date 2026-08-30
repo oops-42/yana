@@ -65,7 +65,7 @@ Example:
     Tested function:
 
     ``` powershell
-    function MyCommand([string]$Arg) {
+    function my_command([string]$Arg) {
         $Arg.ToUpper()
     }
     ```
@@ -73,9 +73,9 @@ Example:
     Yanatest function:
 
     ``` powershell
-    function yanatest_MyCommand {
+    function yanatest_my_command {
         $expected = 'HELLO'
-        $actual = MyCommand -Arg 'hello'
+        $actual = my_command -Arg 'hello'
         if ($expected -ne $actual) { fail 'Should return upper case value' $expected $actual }
     }
     ```
@@ -96,19 +96,19 @@ Example:
     ``` bash
     function yanatest_my_command {
         expected='HELLO' # Define the expected value
-        _rc=0 # We will use this variable to capture the return code of the command
-        actual=$(my_command hello) || _rc=$? # Capture the return code of the command
-        [[ $_rc -eq 0 ]] || fail 'Should return zero exit code'  0 "$_rc"
+        actual=$(my_command hello) || fail 'Should return zero exit code' 0 "$?"
         [[ "$expected" != "$actual" ]] && fail 'Should return upper case value' "$expected" "$actual"
     }
     ```
 
-This will output a failure message if the result is not as expected:
+This will output a failure message if the result is not as expected like below:
 
 ``` text
-[FAIL]  Should return upper case value.
-        Expected: 'HELLO'
-        Got: 'hello'
+FAIL    Test failed: yanatest_my_command
+FAIL            Caller: /path/to/your/yanatest/file:42
+FAIL            Message: Should return upper case value.
+FAIL            Expected: 'HELLO'
+FAIL            Got: 'hello'
 ```
 
 ### Testing Terminating Exceptions
@@ -161,19 +161,13 @@ To test that a function throws an exception, below are examples of how to do it:
     }
     ```
 
-    You can test that an exception is thrown by mocking the `throw` function and checking the command's exit status.
+    YANA Toolkit provides a mocked `throw` function that behaves like the real `throw` function, but outputs the message, prefixed with "THROW: " to stdout and exits with a requested exit code. You can use it to test that a function throws an exception:
 
     ``` bash
     function yanatest_my_command@throws_on_bad_input {
-        function throw {
-            echo "throw: ${1:-}"
-            exit "${2:-1}"
-        }
-        _rc=0
-        output="$(my_command)" || _rc=$?
-        [[ $_rc -eq 0 ]] && fail 'Should throw an exception on null input'
+        output=$(my_command) && fail 'Should throw an exception on null input'
         expected_message='Argument cannot be null or empty.'
-        [[ "$output" == *"throw: $expected_message" ]] || fail 'Should throw an exception on null input' "$expected_message" "$output"
+        [[ "$output" == *"THROW: $expected_message" ]] || fail 'Should throw an exception on null or empty input' "$expected_message" "$output"
     }
     ```
 
@@ -181,7 +175,7 @@ To test that a function throws an exception, below are examples of how to do it:
 
 Execute the `yana-tool` with `test` mode. You can also define the `YANA_MODE` environment variable to `test` and run the tool without arguments.
 
-Every command-line argument has a corresponding environment variable. If both are specified, the command-line argument takes precedence.
+Every command-line argument has a corresponding environment variable. If both are specified, the command-line argument takes precedence. In the examples below, you can find the use of command-line arguments and environment variables.
 
 The process exits with code `1` if any tests fail, or `0` if all tests pass.
 
@@ -219,6 +213,12 @@ Use `-source` argument or `YANA_SOURCE` environment variable to specify the dire
     .\yana-tool.ps1 test -source './tests'
     ```
 
+    ``` powershell
+    $env:YANA_MODE = 'test'
+    $env:YANA_SOURCE = '.\tests\mymodule.yanatests.ps1'
+    .\yana-tool.ps1
+    ```
+
 === "Bash (Linux/macOS)"
 
     ``` bash
@@ -226,23 +226,9 @@ Use `-source` argument or `YANA_SOURCE` environment variable to specify the dire
     ./yana-tool.sh test -source './tests'
     ```
 
-### Run a specific test file
-
-Use `-source` argument or `YANA_SOURCE` environment variable to specify the directory to search for test files.
-If a directory is specified, all test files in that directory
-
-=== "PowerShell (Windows)"
-
-    ``` powershell
-    .\yana-tool.ps1 test -testfile '.\tests\mymodule.yanatests.ps1' # Run a specific test file
-    .\yana-tool.ps1 test -testfile '.\tests\' # Run all test files in a specific directory
-    ```
-
-=== "Bash (Linux/macOS)"
-
     ``` bash
-    ./yana-tool.sh test -source './tests/mymodule.yanatests.ps1' # Run a specific test file
-    ./yana-tool.sh test -source './tests/' # Run all test files in a specific directory
+    YANA_MODE='test' YANA_SOURCE='./tests/mymodule.yanatests.sh' ./yana-tool.sh
+    YANA_MODE='test' YANA_SOURCE='./tests/' ./yana-tool.sh
     ```
 
 ### Output test results to a log file
@@ -254,8 +240,6 @@ Use `-logfile` argument or `YANA_LOGFILE` environment variable to specify the lo
     ``` powershell
     .\yana-tool.ps1 test -logfile '.\test_results.log'
     ```
-
-    OR
 
     ``` powershell
     $env:YANA_MODE = 'test'
@@ -269,11 +253,8 @@ Use `-logfile` argument or `YANA_LOGFILE` environment variable to specify the lo
     ./yana-tool.sh test -logfile './test_results.log'
     ```
 
-    OR
-
     ``` bash
-    export YANA_MODE='test'
-    export YANA_LOGFILE='./test_results.log'
+    export YANA_MODE='test' YANA_LOGFILE='./test_results.log'
     ./yana-tool.sh
     ```
 
@@ -287,8 +268,6 @@ Use `-failfast` argument or `YANA_FAILFAST` environment variable to stop executi
     .\yana-tool.ps1 test -failfast
     ```
 
-    OR
-
     ``` powershell
     $env:YANA_MODE = 'test'
     $env:YANA_FAILFAST = 'true'
@@ -301,10 +280,7 @@ Use `-failfast` argument or `YANA_FAILFAST` environment variable to stop executi
     ./yana-tool.sh test -failfast
     ```
 
-    OR
-
     ``` bash
-    export YANA_MODE='test'
-    export YANA_FAILFAST='true'
+    export YANA_MODE='test' YANA_FAILFAST='true'
     ./yana-tool.sh
     ```
